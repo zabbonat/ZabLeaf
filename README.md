@@ -1,36 +1,56 @@
 # ZabLeaf
 
-ZabLeaf is a lightweight desktop application for editing LaTeX documents offline and synchronizing changes with Overleaf using Git.
+ZabLeaf is a standalone, lightweight native desktop application for editing LaTeX documents offline and synchronizing specific projects with Overleaf via Git.
 
 Developed by Diletta Abbonato (Zabbonat).
 
-## Description
+## Overview
 
-ZabLeaf provides an offline LaTeX editor interface with a side-by-side PDF preview. Changes made while offline are saved locally and pushed to your Overleaf project via Git when an internet connection is available.
+ZabLeaf is not a web app; it is packaged as a native desktop program for Windows, macOS, and Linux using Tauri and Rust. It runs in its own window without requiring a web browser.
 
-It supports accounts authenticated through standard Overleaf logins, Google SSO, ORCID, or GitHub-linked repositories.
+While offline, documents are edited locally with a side-by-side PDF preview. When internet access is available, changes are synchronized directly with your Overleaf project using Overleaf's Git integration.
 
 ## Key Features
 
-- Offline LaTeX editor using the Monaco Editor engine.
-- Real-time side-by-side PDF preview.
-- Bidirectional synchronization with Overleaf via Git (`git.overleaf.com`).
-- Offline-first local file storage.
-- Support for Overleaf accounts, Google SSO, and ORCID tokens.
-- Merge conflict resolution interface.
+- Native standalone desktop application (Windows `.msi`/`.exe`, macOS `.dmg`, Linux `.AppImage`).
+- Offline LaTeX editor powered by Monaco Editor.
+- Side-by-side PDF preview.
+- Bidirectional synchronization with specific Overleaf projects via Git.
+- Local offline storage for files and project settings.
+- Compatible with Overleaf accounts, Google SSO, and ORCID authentication.
 
-## How to Download and Run
+## How to Get Required Credentials from Overleaf
+
+To synchronize a project between ZabLeaf and Overleaf, you need two items from Overleaf:
+
+### 1. Overleaf Project ID
+- Open the project you want to sync on [Overleaf.com](https://www.overleaf.com).
+- Look at the web browser URL in your address bar:
+  `https://www.overleaf.com/project/65e8a9f012b34c56789abcde`
+- The **Project ID** is the string of numbers and letters after `/project/` (for example: `65e8a9f012b34c56789abcde`).
+
+### 2. Overleaf Git Password / Token
+- Log into Overleaf.
+- Click your profile icon in the top-right corner and select **Account Settings**.
+- Scroll down to the **Git Integration** section.
+- Click **Set Git Password** or **Create Token**.
+- Copy the generated Git password/token.
+
+*(Note: Users who log into Overleaf via Google SSO or ORCID use their Overleaf account email and this generated Git Password to authenticate).*
+
+## How to Install and Build the Desktop Application
 
 ### Prerequisites
 
 - Node.js (version 18 or higher)
+- Rust and Cargo (required to build the native desktop installer)
 - Git
 
-### Installation Steps
+### Build Steps for Desktop Executable
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/Zabbonat/ZabLeaf.git
+   git clone https://github.com/zabbonat/ZabLeaf.git
    cd ZabLeaf
    ```
 
@@ -39,22 +59,28 @@ It supports accounts authenticated through standard Overleaf logins, Google SSO,
    npm install
    ```
 
-3. Run the application in development mode:
+3. Run in local development preview mode:
    ```bash
    npm run dev
    ```
 
-4. Build the production package:
+4. Build the standalone desktop installer (`.msi` / `.exe` on Windows):
    ```bash
-   npm run build
+   npm run tauri build
    ```
+   The compiled desktop installer will be generated in:
+   `src-tauri/target/release/bundle/msi/`
 
-## Overleaf Git Setup
+## Project Synchronization Setup in ZabLeaf
 
-1. Log into your Overleaf account.
-2. Go to Account Settings -> Git Integration.
-3. Generate or view your Git Password / Access Token.
-4. In ZabLeaf, open Account Settings and enter your Overleaf Email, Git Token, and Project ID.
+1. Launch ZabLeaf.
+2. Click **Account Settings**.
+3. Enter:
+   - **Overleaf Account Email**
+   - **Git Password / Token** (obtained from Account Settings)
+   - **Project ID** (obtained from project URL)
+4. Click **Save & Connect**.
+5. Click **Sync Overleaf** to fetch or push changes.
 
 ## License
 
