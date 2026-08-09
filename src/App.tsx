@@ -6,13 +6,7 @@ import { PDFPreview } from './components/PDFViewer/PDFPreview';
 import { AuthModal } from './components/AuthModal/AuthModal';
 import './styles/main.css';
 
-const INITIAL_FILES: FileNode[] = [
-  { id: '1', name: 'main.tex', type: 'file', extension: 'tex' },
-  { id: '2', name: 'references.bib', type: 'file', extension: 'bib' },
-  { id: '3', name: 'sections/introduction.tex', type: 'file', extension: 'tex' },
-];
-
-const INITIAL_LATEX = `\\documentclass{article}
+const DEFAULT_LATEX = `\\documentclass{article}
 \\title{ZabLeaf: Ultra-Lightweight Offline Overleaf IDE}
 \\author{Diletta Abbonato (Zabbonat)}
 \\date{\\today}
@@ -38,11 +32,19 @@ export const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
+  
+  const [files, setFiles] = useState<FileNode[]>([
+    { id: '1', name: 'main.tex', type: 'file', content: DEFAULT_LATEX },
+    { id: '2', name: 'references.bib', type: 'file', content: '@article{zableaf2026,\n  author={Abbonato, Diletta},\n  title={ZabLeaf Desktop IDE},\n  year={2026}\n}' }
+  ]);
+  
   const [activeFileId, setActiveFileId] = useState<string>('1');
-  const [fileContent, setFileContent] = useState<string>(INITIAL_LATEX);
-  const [savedEmail, setSavedEmail] = useState<string>('diletta@example.com');
-  const [savedProjectId, setSavedProjectId] = useState<string>('zableaf-demo-project');
+  const [folderPath, setFolderPath] = useState<string>('C:/Users/User/Documents/LaTeX/MyProject');
+  const [savedEmail, setSavedEmail] = useState<string>('');
+  const [savedProjectId, setSavedProjectId] = useState<string>('MyOverleafPaper');
   const [notification, setNotification] = useState<string | null>(null);
+
+  const activeFile = files.find(f => f.id === activeFileId) || files[0];
 
   // Monitor network connectivity
   useEffect(() => {
@@ -52,7 +54,7 @@ export const App: React.FC = () => {
     };
     const handleOffline = () => {
       setIsOnline(false);
-      showNotification('⚡ You are now offline. ZabLeaf is saving changes locally.');
+      showNotification('⚡ Offline mode active. Edits are saved locally on your computer.');
     };
 
     window.addEventListener('online', handleOnline);
@@ -66,7 +68,7 @@ export const App: React.FC = () => {
 
   const showNotification = (msg: string) => {
     setNotification(msg);
-    setTimeout(() => setNotification(null), 4000);
+    setTimeout(() => setNotification(null), 4500);
   };
 
   const handleCompile = () => {
@@ -74,12 +76,12 @@ export const App: React.FC = () => {
     setTimeout(() => {
       setIsCompiling(false);
       showNotification('✅ PDF Recompiled successfully!');
-    }, 600);
+    }, 500);
   };
 
   const handleSync = () => {
     if (!isOnline) {
-      showNotification('⚠️ Cannot sync while offline. Connect to the internet to push changes to Overleaf.');
+      showNotification('⚠️ Cannot sync while offline. Connect to internet to push changes to Overleaf.');
       return;
     }
     setIsSyncing(true);
@@ -92,22 +94,81 @@ export const App: React.FC = () => {
   const handleSaveCredentials = (email: string, token: string, projectId: string) => {
     setSavedEmail(email);
     setSavedProjectId(projectId);
-    showNotification(`🔒 Credentials saved for ${email}. Connected to Overleaf project!`);
+    showNotification(`🔒 Account credentials saved! Connected to project ${projectId}`);
   };
 
-  // Parse title/author from latex for live preview demo
+  const handleContentChange = (newContent: string | undefined) => {
+    const content = newContent || '';
+    setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content } : f));
+  };
+
+  const handleNewFile = (fileName: string) => {
+    const newId = Date.now().toString();
+    const defaultContent = fileName.endsWith('.tex')
+      ? `% ${fileName}\n\\section{${fileName.replace('.tex', '')}}\n\nWrite content here...\n`
+      : `% ${fileName}\n`;
+
+    const newFileNode: FileNode = {
+      id: newId,
+      name: fileName,
+      type: 'file',
+      content: defaultContent
+    };
+
+    setFiles(prev => [...prev, newFileNode]);
+    setActiveFileId(newId);
+    showNotification(`📄 Created file "${fileName}" in project folder.`);
+  };
+
+  const handleDeleteFile = (idToDelete: string) => {
+    if (files.length <= 1) {
+      showNotification('⚠️ Cannot delete the only file in the project.');
+      return;
+    }
+    const fileToDelete = files.find(f => f.id === idToDelete);
+    setFiles(prev => prev.filter(f => f.id !== idToDelete));
+    if (activeFileId === idToDelete) {
+      const remaining = files.filter(f => f.id !== idToDelete);
+      setActiveFileId(remaining[0].id);
+    }
+    showNotification(`🗑️ Deleted file "${fileToDelete?.name}"`);
+  };
+
+  const handleOpenFolder = async () => {
+    try {
+      if ('showDirectoryPicker' in window) {
+        // @ts-ignore
+        const dirHandle = await window.showDirectoryPicker();
+        setFolderPath(dirHandle.name);
+        showNotification(`📁 Opened folder: ${dirHandle.name}`);
+      } else {
+        const path = prompt('Enter or select local workspace path:', folderPath);
+        if (path) {
+          setFolderPath(path);
+          showNotification(`📁 Workspace set to: ${path}`);
+        }
+      }
+    } catch (e) {
+      // User cancelled picker
+    }
+  };
+
+  // Parse title/author from current latex file
   const extractTitle = () => {
-    const match = fileContent.match(/\\title\{([^}]+)\}/);
-    return match ? match[1] : 'ZabLeaf Document';
+    const content = activeFile?.content || '';
+    const match = content.match(/\\title\{([^}]+)\}/);
+    return match ? match[1] : activeFile?.name || 'ZabLeaf Document';
   };
 
   const extractAuthor = () => {
-    const match = fileContent.match(/\\author\{([^}]+)\}/);
+    const content = activeFile?.content || '';
+    const match = content.match(/\\author\{([^}]+)\}/);
     return match ? match[1] : 'Author Name';
   };
 
   const extractAbstract = () => {
-    const match = fileContent.match(/\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/);
+    const content = activeFile?.content || '';
+    const match = content.match(/\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/);
     return match ? match[1].trim() : '';
   };
 
@@ -146,17 +207,20 @@ export const App: React.FC = () => {
 
       <div className="workspace-container">
         <FileTree
-          files={INITIAL_FILES}
+          files={files}
           activeFileId={activeFileId}
           onSelectFile={(id) => setActiveFileId(id)}
-          onNewFile={() => showNotification('📄 Added new file to local project workspace')}
+          onNewFile={handleNewFile}
+          onDeleteFile={handleDeleteFile}
+          onOpenFolder={handleOpenFolder}
+          currentFolderPath={folderPath}
         />
 
         <div className="editor-pdf-split">
           <LaTeXEditor
-            fileName="main.tex"
-            content={fileContent}
-            onChange={(val) => setFileContent(val || '')}
+            fileName={activeFile?.name || 'untitled.tex'}
+            content={activeFile?.content || ''}
+            onChange={handleContentChange}
           />
 
           <PDFPreview
