@@ -1,19 +1,15 @@
 import React from 'react';
-import { ZoomIn, ZoomOut, Download, FileCheck } from 'lucide-react';
+import { ZoomIn, ZoomOut, Download, FileCheck, Terminal } from 'lucide-react';
 
 interface PDFPreviewProps {
-  title: string;
-  author: string;
-  abstractText: string;
-  sections: { title: string; body: string }[];
+  compiledUrl: string | null;
+  compileLog: string;
   isCompiling: boolean;
 }
 
 export const PDFPreview: React.FC<PDFPreviewProps> = ({
-  title,
-  author,
-  abstractText,
-  sections,
+  compiledUrl,
+  compileLog,
   isCompiling
 }) => {
   return (
@@ -21,7 +17,7 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({
       <div className="pane-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <FileCheck size={14} color="#10b981" />
-          <span>PDF Preview (Page 1 of 1)</span>
+          <span>Compiled PDF Preview</span>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button className="btn-secondary" style={{ padding: '4px 8px' }} title="Zoom In">
@@ -36,34 +32,34 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({
         </div>
       </div>
 
-      <div className="pdf-viewer-container">
+      <div className="pdf-viewer-container" style={{ padding: 0 }}>
         {isCompiling ? (
-          <div style={{ color: '#94a3b8', textAlign: 'center', padding: '40px' }}>
-            <div className="spin-animation" style={{ fontSize: '2rem', marginBottom: '12px' }}>⚙️</div>
+          <div style={{ color: '#94a3b8', textAlign: 'center', padding: '40px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '12px', animation: 'spin 1s linear infinite' }}>⚙️</div>
             <p>Compiling LaTeX document...</p>
           </div>
+        ) : compiledUrl ? (
+          <iframe
+            src={compiledUrl}
+            className="pdf-iframe-container"
+            title="Compiled PDF"
+          />
         ) : (
-          <div className="pdf-page-card">
-            <h1>{title || 'Untitled LaTeX Document'}</h1>
-            <div className="author">{author || 'Author Name'}</div>
-
-            {abstractText && (
-              <div style={{ marginBottom: '24px', background: '#f8fafc', padding: '12px', borderLeft: '3px solid #10b981', fontStyle: 'italic' }}>
-                <strong>Abstract — </strong>{abstractText}
-              </div>
-            )}
-
-            {sections.map((sec, idx) => (
-              <section key={idx}>
-                <h2>{idx + 1}. {sec.title}</h2>
-                <p style={{ lineHeight: '1.6', fontSize: '1rem', color: '#334155' }}>
-                  {sec.body}
-                </p>
-              </section>
-            ))}
+          <div style={{ color: '#94a3b8', textAlign: 'center', padding: '40px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <FileCheck size={48} style={{ opacity: 0.2, marginBottom: '12px' }} />
+            <p>Click <strong>Recompile</strong> to generate the PDF preview.</p>
           </div>
         )}
       </div>
+
+      {compileLog && (
+        <div className="compile-log">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', color: '#64748b' }}>
+            <Terminal size={12} /> Compiler Output
+          </div>
+          {compileLog}
+        </div>
+      )}
     </div>
   );
 };
