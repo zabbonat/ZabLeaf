@@ -6,8 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/generate-icons.cjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "pretauri": "node scripts/generate-icons.cjs",
     "tauri": "tauri"
   },
   "dependencies": {
