@@ -1,4 +1,4 @@
-name: Release Desktop App
+name: Release Desktop App (Windows, macOS, Linux)
 
 on:
   push:
@@ -13,11 +13,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-latest]
+        include:
+          - platform: windows-latest
+            args: ""
+          - platform: macos-latest
+            args: ""
+          - platform: ubuntu-22.04
+            args: ""
 
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: setup node
         uses: actions/setup-node@v4
@@ -37,6 +49,6 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: 'ZabLeaf v__VERSION__'
-          releaseBody: 'Direct standalone executable for Windows (no Node.js required).'
-          releaseDraft: true
+          releaseBody: 'Standalone desktop executables for Windows (.exe/.msi), macOS (.dmg), and Linux (.AppImage/.deb). No Node.js required.'
+          releaseDraft: false
           prerelease: false
