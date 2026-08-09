@@ -24,7 +24,7 @@ export const SyncToolbar: React.FC<SyncToolbarProps> = ({
     <header className="top-toolbar">
       <div className="brand-section">
         <div className="brand-logo">
-          <span>🌿</span> ZabLeaf
+          <span>🌿</span> ZabbLeaf
         </div>
         <span className="brand-badge">Desktop v1.0</span>
         <span style={{ color: '#475569', margin: '0 8px' }}>|</span>

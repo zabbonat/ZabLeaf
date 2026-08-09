@@ -1,16 +1,16 @@
-# ZabLeaf
+# ZabbLeaf
 
-ZabLeaf is a standalone native desktop application for offline LaTeX editing and bidirectional Overleaf synchronization.
+ZabbLeaf is a standalone native desktop application for offline LaTeX editing and bidirectional Overleaf synchronization.
 
 Developed by Diletta Abbonato (Zabbonat).
 
 ## Download Desktop App (Windows, macOS, Linux)
 
-No Node.js, terminal commands, or developer tools are required to use ZabLeaf. Download the pre-compiled installer for your operating system directly from GitHub Releases:
+No Node.js, terminal commands, or developer tools are required to use ZabbLeaf. Download the pre-compiled installer for your operating system directly from GitHub Releases:
 
-- **Windows**: [Download ZabLeaf for Windows (.msi / .exe)](https://github.com/zabbonat/ZabLeaf/releases/latest)
-- **macOS**: [Download ZabLeaf for macOS (.dmg)](https://github.com/zabbonat/ZabLeaf/releases/latest)
-- **Linux**: [Download ZabLeaf for Linux (.AppImage / .deb)](https://github.com/zabbonat/ZabLeaf/releases/latest)
+- **Windows**: [Download ZabbLeaf for Windows (.msi / .exe)](https://github.com/zabbonat/ZabLeaf/releases/latest)
+- **macOS**: [Download ZabbLeaf for macOS (.dmg)](https://github.com/zabbonat/ZabLeaf/releases/latest)
+- **Linux**: [Download ZabbLeaf for Linux (.AppImage / .deb)](https://github.com/zabbonat/ZabLeaf/releases/latest)
 
 [View All Release Files and Versions](https://github.com/zabbonat/ZabLeaf/releases)
 
@@ -18,7 +18,7 @@ No Node.js, terminal commands, or developer tools are required to use ZabLeaf. D
 
 ## Description
 
-ZabLeaf runs as a native desktop program on Windows, macOS, and Linux.
+ZabbLeaf runs as a native desktop program on Windows, macOS, and Linux.
 
 While offline, documents are edited locally with a side-by-side PDF preview. When internet access is available, changes are synchronized directly with your Overleaf project using Overleaf's Git integration.
 
@@ -29,13 +29,14 @@ While offline, documents are edited locally with a side-by-side PDF preview. Whe
 - Side-by-side PDF preview.
 - Bidirectional synchronization with specific Overleaf projects via Git.
 - Local offline storage for files and project settings.
+- Interactive multi-file creation and local directory chooser.
 - Compatible with standard Overleaf accounts, Google SSO, and ORCID login.
 
 ---
 
 ## How to Connect Your Overleaf Project
 
-To synchronize a project between ZabLeaf and Overleaf, you need two items from Overleaf:
+To synchronize a project between ZabbLeaf and Overleaf, you need two items from Overleaf:
 
 ### 1. Overleaf Project ID
 - Open your project on [Overleaf.com](https://www.overleaf.com).
@@ -54,9 +55,9 @@ To synchronize a project between ZabLeaf and Overleaf, you need two items from O
 
 ---
 
-## Using ZabLeaf
+## Using ZabbLeaf
 
-1. Launch the ZabLeaf desktop application.
+1. Launch the ZabbLeaf desktop application.
 2. Click **Account Settings**.
 3. Enter your Overleaf Email, Git Token, and Project ID.
 4. Click **Save & Connect**.
@@ -66,7 +67,7 @@ To synchronize a project between ZabLeaf and Overleaf, you need two items from O
 
 ## Compiling from Source Code (Developers Only)
 
-If you want to modify the source code or build ZabLeaf manually, Node.js (v18+) and Rust are required.
+If you want to modify the source code or build ZabbLeaf manually, Node.js (v18+) and Rust are required.
 
 ```bash
 git clone https://github.com/zabbonat/ZabLeaf.git

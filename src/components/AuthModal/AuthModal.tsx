@@ -166,7 +166,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 Scroll down to <strong>Git Integration</strong> and click <strong>Set Git Password</strong> (or Create Token).
               </li>
               <li>
-                Copy the generated password and paste it into the <strong>Git Password / Token</strong> field in ZabLeaf!
+                Copy the generated password and paste it into the <strong>Git Password / Token</strong> field in ZabbLeaf!
               </li>
             </ol>
 

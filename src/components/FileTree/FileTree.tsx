@@ -153,7 +153,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
       </ul>
 
       <div style={{ padding: '12px 16px', borderTop: '1px solid #1e293b', fontSize: '0.75rem', color: '#64748b' }}>
-        <div>ZabLeaf Desktop IDE</div>
+        <div>ZabbLeaf Desktop IDE</div>
         <div style={{ color: '#10b981', marginTop: '2px' }}>by Diletta Abbonato (Zabbonat)</div>
       </div>
     </aside>

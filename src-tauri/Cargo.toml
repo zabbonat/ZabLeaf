@@ -1,7 +1,7 @@
 [package]
-name = "zableaf"
+name = "zabbleaf"
 version = "1.0.0"
-description = "ZabLeaf Desktop IDE by Diletta Abbonato (Zabbonat)"
+description = "ZabbLeaf Desktop IDE by Diletta Abbonato (Zabbonat)"
 authors = ["Diletta Abbonato <diletta@example.com>"]
 edition = "2021"
 

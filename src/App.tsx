@@ -7,7 +7,7 @@ import { AuthModal } from './components/AuthModal/AuthModal';
 import './styles/main.css';
 
 const DEFAULT_LATEX = `\\documentclass{article}
-\\title{ZabLeaf: Ultra-Lightweight Offline Overleaf IDE}
+\\title{ZabbLeaf: Ultra-Lightweight Offline Overleaf IDE}
 \\author{Diletta Abbonato (Zabbonat)}
 \\date{\\today}
 
@@ -16,14 +16,14 @@ const DEFAULT_LATEX = `\\documentclass{article}
 \\maketitle
 
 \\begin{abstract}
-ZabLeaf is a modern, open-source desktop application designed for offline LaTeX editing with seamless Overleaf Git synchronization.
+ZabbLeaf is a modern, open-source desktop application designed for offline LaTeX editing with seamless Overleaf Git synchronization.
 \\end{abstract}
 
 \\section{Introduction}
-Working on scientific papers often requires working on the go without reliable internet access. ZabLeaf allows researchers to edit LaTeX documents offline using a rich Monaco editor and live PDF preview.
+Working on scientific papers often requires working on the go without reliable internet access. ZabbLeaf allows researchers to edit LaTeX documents offline using a rich Monaco editor and live PDF preview.
 
 \\section{Offline Git Sync Architecture}
-When connectivity is restored, ZabLeaf pushes local commits directly to Overleaf Git remotes using conflict-resilient operational transformation logic.
+When connectivity is restored, ZabbLeaf pushes local commits directly to Overleaf Git remotes using conflict-resilient operational transformation logic.
 
 \\end{document}`;
 
@@ -35,7 +35,7 @@ export const App: React.FC = () => {
   
   const [files, setFiles] = useState<FileNode[]>([
     { id: '1', name: 'main.tex', type: 'file', content: DEFAULT_LATEX },
-    { id: '2', name: 'references.bib', type: 'file', content: '@article{zableaf2026,\n  author={Abbonato, Diletta},\n  title={ZabLeaf Desktop IDE},\n  year={2026}\n}' }
+    { id: '2', name: 'references.bib', type: 'file', content: '@article{zabbleaf2026,\n  author={Abbonato, Diletta},\n  title={ZabbLeaf Desktop IDE},\n  year={2026}\n}' }
   ]);
   
   const [activeFileId, setActiveFileId] = useState<string>('1');
@@ -157,7 +157,7 @@ export const App: React.FC = () => {
   const extractTitle = () => {
     const content = activeFile?.content || '';
     const match = content.match(/\\title\{([^}]+)\}/);
-    return match ? match[1] : activeFile?.name || 'ZabLeaf Document';
+    return match ? match[1] : activeFile?.name || 'ZabbLeaf Document';
   };
 
   const extractAuthor = () => {
@@ -230,11 +230,11 @@ export const App: React.FC = () => {
             sections={[
               {
                 title: 'Introduction',
-                body: 'Working on scientific papers often requires working on the go without reliable internet access. ZabLeaf allows researchers to edit LaTeX documents offline using a rich Monaco editor and live PDF preview.'
+                body: 'Working on scientific papers often requires working on the go without reliable internet access. ZabbLeaf allows researchers to edit LaTeX documents offline using a rich Monaco editor and live PDF preview.'
               },
               {
                 title: 'Offline Git Sync Architecture',
-                body: 'When connectivity is restored, ZabLeaf pushes local commits directly to Overleaf Git remotes using conflict-resilient operational transformation logic.'
+                body: 'When connectivity is restored, ZabbLeaf pushes local commits directly to Overleaf Git remotes using conflict-resilient operational transformation logic.'
               }
             ]}
             isCompiling={isCompiling}
