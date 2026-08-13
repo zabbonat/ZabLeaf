@@ -1,7 +1,7 @@
 {
   "name": "zabbleaf",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "Ultra-lightweight Desktop App for Offline LaTeX editing & Overleaf Git sync by Diletta Abbonato (Zabbonat)",
   "type": "module",
   "scripts": {

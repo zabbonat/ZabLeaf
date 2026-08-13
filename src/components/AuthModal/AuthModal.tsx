@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Shield, ExternalLink, Key, CheckCircle2 } from 'lucide-react';
+import { X, Shield, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { gitSyncEngine } from '../../services/gitSync';
 import { overleafAuth } from '../../services/overleafAuth';
 

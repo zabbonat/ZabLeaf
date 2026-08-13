@@ -36,7 +36,7 @@ export const SyncToolbar: React.FC<SyncToolbarProps> = ({
         <div className="brand-logo" style={{ cursor: 'pointer' }} onClick={onHome}>
           <span>🌿</span> ZabbLeaf
         </div>
-        <span className="brand-badge">Desktop v2.0</span>
+        <span className="brand-badge">Desktop v2.1</span>
         <span style={{ color: '#475569', margin: '0 8px' }}>|</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#cbd5e1' }}>
           <FolderGit2 size={16} color="#10b981" />

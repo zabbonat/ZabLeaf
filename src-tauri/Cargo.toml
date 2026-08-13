@@ -1,8 +1,8 @@
 [package]
 name = "zabbleaf"
-version = "1.0.0"
+version = "2.1.0"
 description = "ZabbLeaf Desktop IDE by Diletta Abbonato (Zabbonat)"
-authors = ["Diletta Abbonato <diletta@example.com>"]
+authors = ["Diletta Abbonato (Zabbonat)"]
 edition = "2021"
 
 [build-dependencies]

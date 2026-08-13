@@ -7,7 +7,7 @@ import { AuthModal } from './components/AuthModal/AuthModal';
 import { ProjectList } from './components/ProjectList/ProjectList';
 import { VersionHistory } from './components/VersionHistory/VersionHistory';
 import { overleafAuth } from './services/overleafAuth';
-import { OverleafProject } from './services/overleafApi';
+import { OverleafProject, overleafApi } from './services/overleafApi';
 import { latexCompiler } from './services/latexCompiler';
 import { versionHistory, VersionSnapshot } from './services/versionHistory';
 import { gitSyncEngine } from './services/gitSync';
@@ -267,6 +267,7 @@ export const App: React.FC = () => {
         isLocal: true,
         syncStatus: 'offline-only'
       };
+      overleafApi.addProject(project);
       handleOpenProject(project);
     }
   };

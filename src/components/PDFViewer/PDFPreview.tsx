@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ZoomIn, ZoomOut, Download, FileCheck, Terminal } from 'lucide-react';
 
 interface PDFPreviewProps {
@@ -12,21 +12,37 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({
   compileLog,
   isCompiling
 }) => {
+  const [zoom, setZoom] = useState(100);
+
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 15, 200));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 15, 50));
+  const handleDownload = () => {
+    if (compiledUrl) {
+      const a = document.createElement('a');
+      a.href = compiledUrl;
+      a.download = 'zabbleaf-preview.html';
+      a.click();
+    }
+  };
+
   return (
     <div className="pdf-pane">
       <div className="pane-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <FileCheck size={14} color="#10b981" />
           <span>Compiled PDF Preview</span>
+          {zoom !== 100 && (
+            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{zoom}%</span>
+          )}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn-secondary" style={{ padding: '4px 8px' }} title="Zoom In">
+          <button className="btn-secondary" style={{ padding: '4px 8px' }} title="Zoom In" onClick={handleZoomIn}>
             <ZoomIn size={14} />
           </button>
-          <button className="btn-secondary" style={{ padding: '4px 8px' }} title="Zoom Out">
+          <button className="btn-secondary" style={{ padding: '4px 8px' }} title="Zoom Out" onClick={handleZoomOut}>
             <ZoomOut size={14} />
           </button>
-          <button className="btn-secondary" style={{ padding: '4px 8px' }} title="Download PDF">
+          <button className="btn-secondary" style={{ padding: '4px 8px' }} title="Download Preview" onClick={handleDownload} disabled={!compiledUrl}>
             <Download size={14} />
           </button>
         </div>
@@ -43,6 +59,7 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({
             src={compiledUrl}
             className="pdf-iframe-container"
             title="Compiled PDF"
+            style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left', width: `${10000 / zoom}%`, height: `${10000 / zoom}%` }}
           />
         ) : (
           <div style={{ color: '#94a3b8', textAlign: 'center', padding: '40px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>

@@ -14,7 +14,6 @@ export interface CompileResult {
 }
 
 export class LaTeXCompilerService {
-  private isEngineLoaded = false;
   private previousPdfUrl: string | null = null;
 
   /**
