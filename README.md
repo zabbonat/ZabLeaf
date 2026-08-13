@@ -8,11 +8,11 @@ Developed by Diletta Abbonato (Zabbonat).
 
 No Node.js, terminal commands, or developer tools are required to use ZabbLeaf. Download the pre-compiled installer for your operating system directly from GitHub Releases:
 
-- **Windows**: [Download ZabbLeaf for Windows (.msi / .exe)](https://github.com/zabbonat/ZabLeaf/releases/latest)
-- **macOS**: [Download ZabbLeaf for macOS (.dmg)](https://github.com/zabbonat/ZabLeaf/releases/latest)
-- **Linux**: [Download ZabbLeaf for Linux (.AppImage / .deb)](https://github.com/zabbonat/ZabLeaf/releases/latest)
+- **Windows**: [Download ZabbLeaf for Windows (.msi / .exe)](https://github.com/zabbonat/zabbleaf/releases/latest)
+- **macOS**: [Download ZabbLeaf for macOS (.dmg)](https://github.com/zabbonat/zabbleaf/releases/latest)
+- **Linux**: [Download ZabbLeaf for Linux (.AppImage / .deb)](https://github.com/zabbonat/zabbleaf/releases/latest)
 
-[View All Release Files and Versions](https://github.com/zabbonat/ZabLeaf/releases)
+[View All Release Files and Versions](https://github.com/zabbonat/zabbleaf/releases)
 
 ---
 
@@ -70,8 +70,8 @@ To synchronize a project between ZabbLeaf and Overleaf, you need two items from 
 If you want to modify the source code or build ZabbLeaf manually, Node.js (v18+) and Rust are required.
 
 ```bash
-git clone https://github.com/zabbonat/ZabLeaf.git
-cd ZabLeaf
+git clone https://github.com/zabbonat/zabbleaf.git
+cd zabbleaf
 npm install
 npm run tauri build
 ```

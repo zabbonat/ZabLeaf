@@ -212,7 +212,7 @@ export const App: React.FC = () => {
   // HOME VIEW: Project List
   if (currentView === 'home') {
     return (
-      <div className="zableaf-app">
+      <div className="zabbleaf-app">
         {notification && (
           <div style={{
             position: 'fixed', bottom: '20px', right: '20px',
@@ -235,7 +235,7 @@ export const App: React.FC = () => {
 
   // EDITOR VIEW
   return (
-    <div className="zableaf-app">
+    <div className="zabbleaf-app">
       <SyncToolbar
         isOnline={isOnline}
         isSyncing={isSyncing}

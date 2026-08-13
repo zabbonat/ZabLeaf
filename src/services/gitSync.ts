@@ -11,7 +11,7 @@ export class GitSyncService {
   private dir: string;
   private credentials: OverleafCredentials | null = null;
 
-  constructor(dir: string = '/zableaf-workspace') {
+  constructor(dir: string = '/zabbleaf-workspace') {
     this.dir = dir;
   }
 
@@ -42,7 +42,7 @@ export class GitSyncService {
       };
 
       // Perform bidirectional git fetch & push simulation
-      console.log(`[ZabLeaf] Syncing with Overleaf Git remote: ${url}`);
+      console.log(`[zabbleaf] Syncing with Overleaf Git remote: ${url}`);
       return { success: true, message: 'Overleaf Git sync completed successfully!' };
     } catch (err: any) {
       return { success: false, message: `Sync error: ${err.message || err}` };
