@@ -243,6 +243,7 @@ export const App: React.FC = () => {
         onSync={handleSync}
         onCompile={handleCompile}
         onOpenAuth={() => setIsAuthOpen(true)}
+        onHome={() => setCurrentView('home')}
         projectName={currentProject?.name || 'Local Project'}
       />
 

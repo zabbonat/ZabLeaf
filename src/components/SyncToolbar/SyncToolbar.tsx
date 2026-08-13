@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Wifi, WifiOff, Play, UserCheck, FolderGit2 } from 'lucide-react';
+import { RefreshCw, Wifi, WifiOff, Play, UserCheck, FolderGit2, Home } from 'lucide-react';
 
 interface SyncToolbarProps {
   isOnline: boolean;
@@ -8,6 +8,7 @@ interface SyncToolbarProps {
   onSync: () => void;
   onCompile: () => void;
   onOpenAuth: () => void;
+  onHome: () => void;
   projectName: string;
 }
 
@@ -18,15 +19,24 @@ export const SyncToolbar: React.FC<SyncToolbarProps> = ({
   onSync,
   onCompile,
   onOpenAuth,
+  onHome,
   projectName
 }) => {
   return (
     <header className="top-toolbar">
       <div className="brand-section">
-        <div className="brand-logo">
+        <button 
+          onClick={onHome} 
+          className="btn-secondary" 
+          style={{ padding: '6px 10px', marginRight: '10px' }}
+          title="Back to Projects"
+        >
+          <Home size={16} /> Home
+        </button>
+        <div className="brand-logo" style={{ cursor: 'pointer' }} onClick={onHome}>
           <span>🌿</span> ZabbLeaf
         </div>
-        <span className="brand-badge">Desktop v1.0</span>
+        <span className="brand-badge">Desktop v2.0</span>
         <span style={{ color: '#475569', margin: '0 8px' }}>|</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#cbd5e1' }}>
           <FolderGit2 size={16} color="#10b981" />
