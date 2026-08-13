@@ -10,6 +10,7 @@ import { overleafAuth } from './services/overleafAuth';
 import { OverleafProject } from './services/overleafApi';
 import { latexCompiler } from './services/latexCompiler';
 import { versionHistory, VersionSnapshot } from './services/versionHistory';
+import { gitSyncEngine } from './services/gitSync';
 import './styles/main.css';
 
 type AppView = 'home' | 'editor';
@@ -115,16 +116,39 @@ export const App: React.FC = () => {
     }
   }, [activeFile, projectId]);
 
-  const handleSync = () => {
-    if (!isOnline) {
-      showNotification('⚠️ Cannot sync while offline.');
-      return;
-    }
+  const handleSync = async () => {
+    if (!currentProject) return;
+    
     setIsSyncing(true);
-    setTimeout(() => {
-      setIsSyncing(false);
-      showNotification('🎉 Overleaf Sync Complete!');
-    }, 1500);
+    setNotification('Syncing with Overleaf...');
+    
+    // Save any active modifications to disk first
+    for (const f of files) {
+      if (f.isModified) {
+        await gitSyncEngine.writeFile(currentProject.id, f.name, f.content || '');
+      }
+    }
+    
+    const result = await gitSyncEngine.syncProject(currentProject.id);
+    
+    // Reload files from disk after sync
+    const updatedFiles = await gitSyncEngine.readProjectFiles(currentProject.id);
+    if (updatedFiles.length > 0) {
+      setFiles(updatedFiles.map(f => ({
+        id: f.name,
+        name: f.name,
+        type: 'file',
+        content: f.content,
+        isModified: false,
+        lastSynced: new Date().toISOString()
+      })));
+      if (!updatedFiles.find(f => f.name === activeFileId)) {
+        setActiveFileId(updatedFiles[0].name);
+      }
+    }
+    
+    setIsSyncing(false);
+    setNotification(result.message);
   };
 
   const handleLogin = async () => {
@@ -142,7 +166,13 @@ export const App: React.FC = () => {
 
   const handleContentChange = (newContent: string | undefined) => {
     const content = newContent || '';
-    setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content } : f));
+    setFiles(prev => prev.map(f => 
+      f.id === activeFileId ? { ...f, content, isModified: true } : f
+    ));
+    // Save directly to local disk for safety
+    if (currentProject && activeFile) {
+      gitSyncEngine.writeFile(currentProject.id, activeFile.name, content).catch(console.error);
+    }
   };
 
   const handleNewFile = (fileName: string) => {
@@ -179,10 +209,51 @@ export const App: React.FC = () => {
     } catch { /* cancelled */ }
   };
 
-  const handleOpenProject = (project: OverleafProject) => {
+  const handleOpenProject = async (project: OverleafProject) => {
     setCurrentProject(project);
     setCurrentView('editor');
-    showNotification(`📂 Opened project: ${project.name}`);
+    
+    // Attempt to load files from local disk (lightning-fs)
+    const localFiles = await gitSyncEngine.readProjectFiles(project.id);
+    
+    if (localFiles.length > 0) {
+      setFiles(localFiles.map(f => ({
+        id: f.name,
+        name: f.name,
+        type: 'file',
+        content: f.content,
+        isModified: false,
+        lastSynced: project.lastUpdated
+      })));
+      setActiveFileId(localFiles[0].name);
+    } else {
+      // Empty local disk, need to clone!
+      if (!gitSyncEngine.getCredentials()?.gitToken) {
+        setIsAuthOpen(true);
+        setNotification('Please connect your Overleaf account to download this project.');
+      } else {
+        setIsSyncing(true);
+        setNotification('Downloading project from Overleaf...');
+        const res = await gitSyncEngine.cloneProject(project.id);
+        setIsSyncing(false);
+        
+        if (res.success) {
+          const newFiles = await gitSyncEngine.readProjectFiles(project.id);
+          setFiles(newFiles.map(f => ({
+            id: f.name,
+            name: f.name,
+            type: 'file',
+            content: f.content,
+            isModified: false,
+            lastSynced: new Date().toISOString()
+          })));
+          if (newFiles.length > 0) setActiveFileId(newFiles[0].name);
+          setNotification(res.message);
+        } else {
+          setNotification(res.message);
+        }
+      }
+    }
   };
 
   const handleNewProject = () => {
@@ -203,7 +274,7 @@ export const App: React.FC = () => {
   const handleRestoreVersion = (snapshot: VersionSnapshot) => {
     const file = files.find(f => f.name === snapshot.fileName);
     if (file) {
-      setFiles(prev => prev.map(f => f.name === snapshot.fileName ? { ...f, content: snapshot.content } : f));
+      setFiles(prev => prev.map(f => f.name === snapshot.fileName ? { ...f, content: snapshot.content, isModified: true } : f));
       setActiveFileId(file.id);
       showNotification(`↩️ Restored "${snapshot.fileName}" to version from ${new Date(snapshot.timestamp).toLocaleTimeString()}`);
     }
@@ -294,7 +365,6 @@ export const App: React.FC = () => {
         onClose={() => setIsAuthOpen(false)}
         onSaveCredentials={handleSaveCredentials}
         savedEmail={overleafAuth.getEmail()}
-        savedProjectId={currentProject?.id || ''}
       />
     </div>
   );

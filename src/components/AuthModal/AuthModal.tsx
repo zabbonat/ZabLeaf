@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Shield, ExternalLink, LogIn, CheckCircle2, Globe } from 'lucide-react';
+import { X, Shield, ExternalLink, Key, CheckCircle2 } from 'lucide-react';
+import { gitSyncEngine } from '../../services/gitSync';
 import { overleafAuth } from '../../services/overleafAuth';
 
 interface AuthModalProps {
@@ -7,7 +8,6 @@ interface AuthModalProps {
   onClose: () => void;
   onSaveCredentials: (email: string, token: string, projectId: string) => void;
   savedEmail?: string;
-  savedProjectId?: string;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -16,75 +16,85 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSaveCredentials,
   savedEmail = ''
 }) => {
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [email, setEmail] = useState(savedEmail);
+  const [gitToken, setGitToken] = useState(gitSyncEngine.getCredentials()?.gitToken || '');
 
   if (!isOpen) return null;
 
-  const handleBrowserLogin = async () => {
-    setIsLoggingIn(true);
-    const session = await overleafAuth.loginWithBrowser();
-    setIsLoggingIn(false);
-    
-    if (session.isLoggedIn) {
-      onSaveCredentials(session.email, '', '');
-      onClose();
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Save to overleafAuth for display, and gitSyncEngine for actual sync
+    overleafAuth.saveSession({ cookie: '', email, isLoggedIn: true, expiresAt: Date.now() + 99999999 });
+    gitSyncEngine.setCredentials({ email, gitToken });
+    onSaveCredentials(email, gitToken, '');
+    onClose();
   };
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '440px', textAlign: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div className="modal-content" style={{ maxWidth: '500px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Shield size={24} color="#10b981" />
+            <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Overleaf Git Sync</h2>
+          </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
             <X size={20} />
           </button>
         </div>
 
-        <div style={{ margin: '0 auto 20px', width: '64px', height: '64px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Shield size={32} color="#10b981" />
+        <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '16px', borderRadius: '12px', marginBottom: '24px', fontSize: '0.9rem', color: '#f8fafc', lineHeight: '1.5' }}>
+          ZabbLeaf downloads and uploads your actual files using the official Overleaf Git interface. To connect, you need to generate a one-time Sync Token.
         </div>
 
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '8px' }}>
-          Connect to Overleaf
-        </h2>
-        
-        <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '24px', lineHeight: '1.5' }}>
-          ZabbLeaf uses a secure browser connection to sync your projects. 
-          No need to copy/paste Git tokens or passwords anymore!
-        </p>
+        <ol style={{ paddingLeft: '20px', marginBottom: '24px', color: '#cbd5e1', lineHeight: '1.6', fontSize: '0.9rem' }}>
+          <li>
+            Click here to open Overleaf Settings:<br/>
+            <a 
+              href="https://www.overleaf.com/user/settings" 
+              target="_blank" 
+              rel="noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#10b981', fontWeight: 600, background: 'rgba(16, 185, 129, 0.1)', padding: '6px 12px', borderRadius: '6px', marginTop: '6px', textDecoration: 'none' }}
+            >
+              Open Overleaf Settings <ExternalLink size={14} />
+            </a>
+          </li>
+          <li style={{ marginTop: '12px' }}>Scroll down to <strong>Git Integration</strong> and click <strong>Generate Git Password</strong>.</li>
+          <li>Copy the password and paste it below.</li>
+        </ol>
 
-        {savedEmail ? (
-          <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '16px', borderRadius: '12px', marginBottom: '24px' }}>
-            <CheckCircle2 size={24} color="#10b981" style={{ margin: '0 auto 8px' }} />
-            <div style={{ fontWeight: 600, color: '#f8fafc' }}>Currently connected as:</div>
-            <div style={{ color: '#10b981', marginTop: '4px' }}>{savedEmail}</div>
+        <form onSubmit={handleSubmit}>
+          <div className="input-group">
+            <label>Overleaf Email (or Google/ORCID Email)</label>
+            <input
+              type="email"
+              className="input-control"
+              placeholder="e.g. your.email@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
-        ) : null}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <button 
-            className="btn-sync" 
-            onClick={handleBrowserLogin} 
-            disabled={isLoggingIn}
-            style={{ width: '100%', padding: '14px', fontSize: '1rem', justifyContent: 'center', gap: '10px' }}
-          >
-            {isLoggingIn ? (
-              <>
-                <Globe size={18} style={{ animation: 'spin 2s linear infinite' }} /> 
-                Waiting for browser login...
-              </>
-            ) : (
-              <>
-                <LogIn size={18} /> 
-                {savedEmail ? 'Login with a different account' : 'Login with Overleaf (Google / ORCID)'}
-              </>
-            )}
-          </button>
-          
-          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-            <Shield size={12} /> Your credentials are never stored locally.
+          <div className="input-group">
+            <label>Overleaf Sync Token (Git Password)</label>
+            <input
+              type="password"
+              className="input-control"
+              placeholder="Paste the generated token here"
+              value={gitToken}
+              onChange={(e) => setGitToken(e.target.value)}
+              required
+            />
           </div>
-        </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '24px' }}>
+            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-sync">
+              <CheckCircle2 size={18} /> Connect & Save
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

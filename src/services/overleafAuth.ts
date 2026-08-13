@@ -36,7 +36,7 @@ export class OverleafAuthService {
     }
   }
 
-  private saveSession(session: OverleafSession) {
+  public saveSession(session: OverleafSession) {
     this.session = session;
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   }

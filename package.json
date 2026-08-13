@@ -13,7 +13,9 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@isomorphic-git/lightning-fs": "^4.7.0",
     "@monaco-editor/react": "^4.6.0",
+    "@tauri-apps/api": "^1.6.0",
     "isomorphic-git": "^1.25.10",
     "lucide-react": "^0.344.0",
     "pdfjs-dist": "^3.11.174",

@@ -110,8 +110,34 @@ export const ProjectList: React.FC<ProjectListProps> = ({
           <button className="btn-secondary" onClick={loadProjects}>
             <RefreshCw size={14} /> Refresh
           </button>
-          <button className="btn-sync" onClick={onNewProject}>
-            <Plus size={14} /> New Project
+          <button 
+            className="btn-sync" 
+            onClick={() => {
+              const url = prompt("Paste your Overleaf Project URL here:\n(e.g. https://www.overleaf.com/project/65e8...)");
+              if (url) {
+                const id = url.replace('https://www.overleaf.com/project/', '').replace('https://git.overleaf.com/', '').split('?')[0].trim();
+                if (id.length > 5) {
+                  const newProject: OverleafProject = {
+                    id: id,
+                    name: `Project ${id.substring(0, 6)}...`,
+                    lastUpdated: new Date().toISOString(),
+                    syncStatus: 'offline-only',
+                    isLocal: false,
+                    owner: 'Me'
+                  };
+                  setProjects([newProject, ...projects]);
+                  // Automatically open the project to start cloning
+                  onOpenProject(newProject);
+                } else {
+                  alert("Invalid Overleaf URL");
+                }
+              }
+            }}
+          >
+            <Download size={14} /> Add from URL
+          </button>
+          <button className="btn-secondary" onClick={onNewProject}>
+            <Plus size={14} /> Blank
           </button>
         </div>
       </div>

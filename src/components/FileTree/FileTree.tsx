@@ -7,6 +7,9 @@ export interface FileNode {
   type: 'file' | 'folder';
   content?: string;
   extension?: string;
+  isModified?: boolean;
+  lastSynced?: string;
+  children?: FileNode[];
 }
 
 interface FileTreeProps {
