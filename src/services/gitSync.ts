@@ -180,35 +180,62 @@ export class GitSyncService {
   }
   
   /**
-   * Reads all files in the project directory
+   * Reads all files in the project directory, including subdirectories.
    */
   async readProjectFiles(projectId: string): Promise<{name: string, content: string}[]> {
     const dir = `/projects/${projectId}`;
-    const files = [];
+    const files: {name: string, content: string}[] = [];
     
-    try {
-      const fileNames = await fs.promises.readdir(dir);
-      for (const name of fileNames) {
-        if (name === '.git') continue;
-        const stat = await fs.promises.stat(`${dir}/${name}`);
-        if (stat.isFile()) {
-          const content = await fs.promises.readFile(`${dir}/${name}`, 'utf8');
-          files.push({ name, content: content as string });
+    const readDir = async (currentDir: string, prefix: string) => {
+      try {
+        const entries = await fs.promises.readdir(currentDir);
+        for (const entry of entries) {
+          if (entry === '.git') continue;
+          const fullPath = `${currentDir}/${entry}`;
+          const stat = await fs.promises.stat(fullPath);
+          if (stat.isDirectory()) {
+            await readDir(fullPath, prefix ? `${prefix}/${entry}` : entry);
+          } else if (stat.isFile()) {
+            try {
+              const content = await fs.promises.readFile(fullPath, 'utf8');
+              const name = prefix ? `${prefix}/${entry}` : entry;
+              files.push({ name, content: content as string });
+            } catch {
+              // Skip binary files that can't be read as utf8
+            }
+          }
         }
+      } catch {
+        // Directory doesn't exist yet
       }
-      return files;
-    } catch (err) {
-      console.warn("Could not read project files", err);
-      return [];
-    }
+    };
+    
+    await readDir(dir, '');
+    return files;
   }
   
   /**
-   * Writes content to a file
+   * Writes content to a file, creating subdirectories if needed.
    */
   async writeFile(projectId: string, fileName: string, content: string) {
     const dir = `/projects/${projectId}`;
-    await fs.promises.writeFile(`${dir}/${fileName}`, content, 'utf8');
+    const filePath = `${dir}/${fileName}`;
+    
+    // Create parent directories if the file is in a subdirectory
+    if (fileName.includes('/')) {
+      const parts = fileName.split('/');
+      let currentPath = dir;
+      for (let i = 0; i < parts.length - 1; i++) {
+        currentPath += `/${parts[i]}`;
+        try {
+          await fs.promises.mkdir(currentPath);
+        } catch {
+          // Directory already exists
+        }
+      }
+    }
+    
+    await fs.promises.writeFile(filePath, content, 'utf8');
   }
 }
 

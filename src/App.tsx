@@ -151,12 +151,8 @@ export const App: React.FC = () => {
     setNotification(result.message);
   };
 
-  const handleLogin = async () => {
-    const session = await overleafAuth.loginWithBrowser();
-    if (session.isLoggedIn) {
-      setIsLoggedIn(true);
-      showNotification(`🔒 Logged in as ${session.email}`);
-    }
+  const handleLogin = () => {
+    setIsAuthOpen(true);
   };
 
   const handleSaveCredentials = (email: string, _token: string, _projectId: string) => {

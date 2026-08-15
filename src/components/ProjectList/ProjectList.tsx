@@ -150,9 +150,43 @@ export const ProjectList: React.FC<ProjectListProps> = ({
             <p style={{ marginTop: '12px' }}>Loading projects...</p>
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
-            <FolderGit2 size={48} style={{ opacity: 0.3 }} />
-            <p style={{ marginTop: '12px' }}>No projects found</p>
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '16px', opacity: 0.6 }}>🌿</div>
+            <h2 style={{ color: '#f8fafc', fontSize: '1.3rem', marginBottom: '8px' }}>Welcome to ZabbLeaf!</h2>
+            <p style={{ maxWidth: '420px', margin: '0 auto 24px', lineHeight: '1.5' }}>
+              {searchQuery 
+                ? `No projects match "${searchQuery}".`
+                : 'Start by adding an existing Overleaf project or creating a new blank document.'}
+            </p>
+            {!searchQuery && (
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button 
+                  className="btn-sync" 
+                  style={{ padding: '12px 24px', fontSize: '0.95rem' }}
+                  onClick={() => {
+                    const url = prompt("Paste your Overleaf Project URL:\n(e.g. https://www.overleaf.com/project/65e8...)");
+                    if (url) {
+                      const id = url.replace('https://www.overleaf.com/project/', '').replace('https://git.overleaf.com/', '').split('?')[0].trim();
+                      if (id.length > 5) {
+                        const newProject: OverleafProject = { id, name: `Project ${id.substring(0, 6)}...`, lastUpdated: new Date().toISOString(), syncStatus: 'offline-only', isLocal: false, owner: 'Me' };
+                        setProjects([newProject, ...projects]);
+                        onOpenProject(newProject);
+                      }
+                    }
+                  }}
+                >
+                  <Download size={16} /> Add Overleaf Project
+                </button>
+                <button className="btn-secondary" style={{ padding: '12px 24px', fontSize: '0.95rem' }} onClick={onNewProject}>
+                  <Plus size={16} /> Create Blank Document
+                </button>
+                {!isLoggedIn && (
+                  <button className="btn-secondary" style={{ padding: '12px 24px', fontSize: '0.95rem' }} onClick={onLogin}>
+                    <LogIn size={16} /> Connect Account
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           filteredProjects.map(project => (
