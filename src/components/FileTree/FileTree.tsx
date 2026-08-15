@@ -6,7 +6,6 @@ export interface FileNode {
   name: string;
   type: 'file' | 'folder';
   content?: string;
-  extension?: string;
   isModified?: boolean;
   lastSynced?: string;
   children?: FileNode[];
@@ -137,6 +136,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {file.name}
               </span>
+              {file.isModified && (
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} title="Modified" />
+              )}
             </div>
 
             {files.length > 1 && (

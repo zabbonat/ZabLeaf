@@ -194,13 +194,11 @@ export const App: React.FC = () => {
   const handleOpenFolder = async () => {
     try {
       if ('showDirectoryPicker' in window) {
-        // @ts-ignore
-        const dirHandle = await window.showDirectoryPicker();
+        const dirHandle = await (window as any).showDirectoryPicker();
         setFolderPath(dirHandle.name);
         showNotification(`📁 Opened: ${dirHandle.name}`);
       } else {
-        const path = prompt('Enter workspace path:', folderPath);
-        if (path) { setFolderPath(path); showNotification(`📁 Set to: ${path}`); }
+        showNotification('⚠️ Folder picker is not supported in this browser. Use Tauri desktop app.');
       }
     } catch { /* cancelled */ }
   };

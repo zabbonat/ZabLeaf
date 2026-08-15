@@ -17,11 +17,11 @@ export class LaTeXCompilerService {
   private previousPdfUrl: string | null = null;
 
   /**
-   * Compiles LaTeX source code to PDF.
-   * Uses a basic LaTeX-to-HTML rendering as fallback when WASM engine
-   * is not available, and full WASM compilation when the engine is loaded.
+   * Compiles LaTeX source code to a formatted HTML preview.
+   * Parses LaTeX structure (title, sections, abstract, equations) and 
+   * renders a typeset document preview in the style of a real PDF.
    */
-  async compile(texSource: string, _additionalFiles?: Record<string, string>): Promise<CompileResult> {
+  async compile(texSource: string): Promise<CompileResult> {
     const startTime = performance.now();
 
     try {
@@ -131,40 +131,63 @@ export class LaTeXCompilerService {
 
   private generatePdfHtml(doc: ParsedDocument): string {
     let sectionCounter = 0;
+    let subSectionCounter = 0;
 
     const sectionsHtml = doc.sections.map(s => {
       const tag = s.level === 1 ? 'h2' : s.level === 2 ? 'h3' : 'h4';
-      const number = s.level === 1 ? `${++sectionCounter}. ` : '';
+      let number = '';
+      if (s.level === 1) { sectionCounter++; subSectionCounter = 0; number = `${sectionCounter}. `; }
+      else if (s.level === 2) { subSectionCounter++; number = `${sectionCounter}.${subSectionCounter}. `; }
+      
       const content = s.content
         .split('\n')
         .filter(line => line.trim())
-        .map(line => `<p>${line}</p>`)
+        .map(line => {
+          if (line.trim().startsWith('• ')) return `<li>${line.trim().substring(2)}</li>`;
+          return `<p>${line}</p>`;
+        })
         .join('');
-      return `<${tag}>${number}${s.title}</${tag}>${content}`;
+      
+      // Wrap consecutive <li> items in a <ul>
+      const wrappedContent = content.replace(/(<li>.*?<\/li>)+/g, '<ul>$&</ul>');
+      return `<${tag}>${number}${s.title}</${tag}>${wrappedContent}`;
     }).join('');
 
     const abstractHtml = doc.abstract
-      ? `<div style="margin: 20px 40px; padding: 12px 16px; background: #f8f9fa; border-left: 3px solid #2e7d32; font-style: italic;">
+      ? `<div class="abstract">
            <strong>Abstract — </strong>${doc.abstract}
          </div>`
+      : '';
+
+    const equationsHtml = doc.equations.length > 0
+      ? doc.equations.map(eq => `<div class="equation">${eq.trim()}</div>`).join('')
       : '';
 
     return `<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
-  body { font-family: 'Computer Modern', 'Latin Modern', 'Times New Roman', serif; max-width: 750px; margin: 40px auto; padding: 40px; color: #1a1a1a; line-height: 1.6; font-size: 11pt; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Computer Modern', 'Latin Modern', 'Times New Roman', serif; max-width: 750px; margin: 40px auto; padding: 50px 60px; color: #1a1a1a; line-height: 1.65; font-size: 11pt; background: #fff; box-shadow: 0 2px 20px rgba(0,0,0,0.08); }
   h1 { text-align: center; font-size: 18pt; margin-bottom: 4px; }
   .author { text-align: center; font-style: italic; color: #555; margin-bottom: 4px; }
-  .date { text-align: center; color: #777; font-size: 10pt; margin-bottom: 24px; }
-  h2 { font-size: 14pt; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 24px; }
-  h3 { font-size: 12pt; margin-top: 16px; }
+  .date { text-align: center; color: #777; font-size: 10pt; margin-bottom: 24px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+  .abstract { margin: 20px 40px; padding: 12px 16px; background: #f8f9fa; border-left: 3px solid #2e7d32; font-style: italic; font-size: 10pt; line-height: 1.5; }
+  h2 { font-size: 14pt; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 28px; }
+  h3 { font-size: 12pt; margin-top: 18px; font-style: italic; }
+  h4 { font-size: 11pt; margin-top: 14px; }
   p { text-align: justify; margin: 8px 0; }
+  ul { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  .equation { text-align: center; padding: 12px 20px; margin: 16px 40px; background: #fafafa; border: 1px solid #eee; border-radius: 4px; font-family: 'Cambria Math', 'Computer Modern', serif; font-style: italic; color: #333; }
+  .footer { text-align: center; margin-top: 40px; padding-top: 16px; border-top: 1px solid #eee; font-size: 8pt; color: #aaa; }
 </style></head><body>
 <h1>${doc.title}</h1>
 <div class="author">${doc.author}</div>
 <div class="date">${doc.date}</div>
 ${abstractHtml}
 ${sectionsHtml}
+${equationsHtml}
+<div class="footer">Compiled by ZabbLeaf Desktop IDE</div>
 </body></html>`;
   }
 }
