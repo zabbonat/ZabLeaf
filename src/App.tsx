@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { SyncToolbar } from './components/SyncToolbar/SyncToolbar';
+import { SyncToolbar, CompilerEngine, CompilerOption } from './components/SyncToolbar/SyncToolbar';
 import { FileTree, FileNode } from './components/FileTree/FileTree';
 import { LaTeXEditor } from './components/Editor/LaTeXEditor';
 import { PDFPreview } from './components/PDFViewer/PDFPreview';
@@ -9,6 +9,8 @@ import { VersionHistory } from './components/VersionHistory/VersionHistory';
 import { overleafAuth } from './services/overleafAuth';
 import { OverleafProject, overleafApi } from './services/overleafApi';
 import { latexCompiler } from './services/latexCompiler';
+import { overleafCompiler } from './services/overleafCompiler';
+import { localTeXCompiler, TeXEngine, DetectedEngine } from './services/localTeXCompiler';
 import { versionHistory, VersionSnapshot } from './services/versionHistory';
 import { gitSyncEngine } from './services/gitSync';
 import './styles/main.css';
@@ -64,8 +66,60 @@ export const App: React.FC = () => {
   const [compileLog, setCompileLog] = useState<string>('');
   const [snapshots, setSnapshots] = useState<VersionSnapshot[]>([]);
 
+  // Compiler Engines State
+  const [selectedCompiler, setSelectedCompiler] = useState<CompilerEngine>('html-preview');
+  const [detectedLocalEngines, setDetectedLocalEngines] = useState<DetectedEngine[]>([]);
+
   const activeFile = files.find(f => f.id === activeFileId) || files[0];
   const projectId = currentProject?.id || 'local-default';
+
+  // Detect local TeX installations on startup
+  useEffect(() => {
+    localTeXCompiler.detectEngines().then(engines => {
+      setDetectedLocalEngines(engines);
+      if (engines.length > 0) {
+        const pdflatex = engines.find(e => e.engine === 'pdflatex');
+        if (pdflatex) {
+          setSelectedCompiler('pdflatex');
+        } else {
+          setSelectedCompiler(engines[0].engine);
+        }
+      }
+    });
+  }, []);
+
+  const compilerOptions: CompilerOption[] = [
+    {
+      id: 'html-preview',
+      label: 'Quick HTML Preview',
+      description: 'Fast offline HTML-based preview. No TeX required.',
+      available: true
+    },
+    {
+      id: 'overleaf-cloud',
+      label: 'Overleaf Cloud (Remote)',
+      description: 'Compile via Overleaf cloud servers. Requires internet & token.',
+      available: overleafCompiler.isAvailable()
+    },
+    {
+      id: 'pdflatex',
+      label: `pdflatex ${detectedLocalEngines.some(e => e.engine === 'pdflatex') ? '(Local)' : '(Not Installed)'}`,
+      description: 'Standard TeX Live / MiKTeX pdflatex compiler.',
+      available: detectedLocalEngines.some(e => e.engine === 'pdflatex')
+    },
+    {
+      id: 'xelatex',
+      label: `xelatex ${detectedLocalEngines.some(e => e.engine === 'xelatex') ? '(Local)' : '(Not Installed)'}`,
+      description: 'XeLaTeX engine for custom TTF/OTF fonts.',
+      available: detectedLocalEngines.some(e => e.engine === 'xelatex')
+    },
+    {
+      id: 'lualatex',
+      label: `lualatex ${detectedLocalEngines.some(e => e.engine === 'lualatex') ? '(Local)' : '(Not Installed)'}`,
+      description: 'LuaLaTeX engine with modern Lua scripting.',
+      available: detectedLocalEngines.some(e => e.engine === 'lualatex')
+    }
+  ];
 
   // Monitor network connectivity
   useEffect(() => {
@@ -98,23 +152,56 @@ export const App: React.FC = () => {
   const handleCompile = useCallback(async () => {
     setIsCompiling(true);
     const content = activeFile?.content || '';
-    const result = await latexCompiler.compile(content);
-    setIsCompiling(false);
 
-    if (result.success && result.pdfUrl) {
-      setCompiledPdfUrl(result.pdfUrl);
-      setCompileLog(result.log);
+    if (selectedCompiler === 'html-preview') {
+      const result = await latexCompiler.compile(content);
+      setIsCompiling(false);
 
-      // Save version snapshot
-      versionHistory.saveSnapshot(projectId, activeFile?.name || 'main.tex', content, `Compiled ${activeFile?.name}`);
-      setSnapshots(versionHistory.getProjectHistory(projectId));
+      if (result.success && result.pdfUrl) {
+        setCompiledPdfUrl(result.pdfUrl);
+        setCompileLog(result.log);
+        versionHistory.saveSnapshot(projectId, activeFile?.name || 'main.tex', content, `Compiled ${activeFile?.name}`);
+        setSnapshots(versionHistory.getProjectHistory(projectId));
+        showNotification(`✅ Quick Preview generated in ${result.compileTimeMs.toFixed(0)}ms`);
+      } else {
+        setCompileLog(result.log);
+        showNotification('❌ Compilation failed. Check the log output.');
+      }
+    } else if (selectedCompiler === 'overleaf-cloud') {
+      if (!currentProject) {
+        setIsCompiling(false);
+        showNotification('⚠️ Open a project to compile with Overleaf Cloud.');
+        return;
+      }
+      const fileList = files.map(f => ({ name: f.name, content: f.content || '' }));
+      const result = await overleafCompiler.compile(currentProject.id, fileList);
+      setIsCompiling(false);
 
-      showNotification(`✅ Compiled in ${result.compileTimeMs.toFixed(0)}ms`);
+      if (result.success && result.pdfUrl) {
+        setCompiledPdfUrl(result.pdfUrl);
+        setCompileLog(result.log);
+        showNotification('✅ Compiled remotely via Overleaf Cloud!');
+      } else {
+        setCompileLog(result.log);
+        showNotification(`❌ ${result.log}`);
+      }
     } else {
-      setCompileLog(result.log);
-      showNotification('❌ Compilation failed. Check the log output.');
+      // Local TeX compilation (pdflatex, xelatex, lualatex)
+      const result = await localTeXCompiler.compile(content, selectedCompiler as TeXEngine, activeFile?.name || 'main.tex');
+      setIsCompiling(false);
+
+      if (result.success && result.pdfUrl) {
+        setCompiledPdfUrl(result.pdfUrl);
+        setCompileLog(result.log);
+        versionHistory.saveSnapshot(projectId, activeFile?.name || 'main.tex', content, `Compiled with ${selectedCompiler}`);
+        setSnapshots(versionHistory.getProjectHistory(projectId));
+        showNotification(`✅ Compiled successfully using local ${selectedCompiler}!`);
+      } else {
+        setCompileLog(result.log);
+        showNotification(`❌ Local ${selectedCompiler} compilation failed.`);
+      }
     }
-  }, [activeFile, projectId]);
+  }, [activeFile, currentProject, files, projectId, selectedCompiler]);
 
   const handleSync = async () => {
     if (!currentProject) return;
@@ -311,6 +398,9 @@ export const App: React.FC = () => {
         onOpenAuth={() => setIsAuthOpen(true)}
         onHome={() => setCurrentView('home')}
         projectName={currentProject?.name || 'Local Project'}
+        selectedCompiler={selectedCompiler}
+        compilerOptions={compilerOptions}
+        onCompilerChange={setSelectedCompiler}
       />
 
       {notification && (
