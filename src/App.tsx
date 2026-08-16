@@ -294,6 +294,10 @@ export const App: React.FC = () => {
     setCurrentProject(project);
     setCurrentView('editor');
     
+    // Clear default files while loading/cloning
+    setFiles([]);
+    setActiveFileId('');
+    
     // Attempt to load files from local disk (lightning-fs)
     const localFiles = await gitSyncEngine.readProjectFiles(project.id);
     
@@ -320,18 +324,28 @@ export const App: React.FC = () => {
         
         if (res.success) {
           const newFiles = await gitSyncEngine.readProjectFiles(project.id);
-          setFiles(newFiles.map(f => ({
-            id: f.name,
-            name: f.name,
-            type: 'file',
-            content: f.content,
-            isModified: false,
-            lastSynced: new Date().toISOString()
-          })));
-          if (newFiles.length > 0) setActiveFileId(newFiles[0].name);
+          if (newFiles.length > 0) {
+            setFiles(newFiles.map(f => ({
+              id: f.name,
+              name: f.name,
+              type: 'file',
+              content: f.content,
+              isModified: false,
+              lastSynced: new Date().toISOString()
+            })));
+            setActiveFileId(newFiles[0].name);
+          } else {
+             // Remote repository is completely empty, initialize with default
+             const defaultFiles = [
+               { id: '1', name: 'main.tex', type: 'file' as const, content: DEFAULT_LATEX }
+             ];
+             setFiles(defaultFiles);
+             setActiveFileId('1');
+          }
           setNotification(res.message);
         } else {
-          setNotification(res.message);
+          setNotification(`Error: ${res.message}`);
+          // If clone fails, `files` remains empty. The user won't see a misleading default doc.
         }
       }
     }

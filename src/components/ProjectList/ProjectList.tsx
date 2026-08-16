@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FolderGit2, Cloud, CloudOff, HardDrive, Clock, Search, Plus, Download, ArrowRight, RefreshCw, LogIn } from 'lucide-react';
+import { FolderGit2, Cloud, CloudOff, HardDrive, Clock, Search, Plus, Download, ArrowRight, RefreshCw, LogIn, Trash2 } from 'lucide-react';
 import { OverleafProject, overleafApi } from '../../services/overleafApi';
 
 interface ProjectListProps {
@@ -223,6 +223,20 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                     <Download size={14} /> Download Offline
                   </button>
                 )}
+                <button
+                  className="btn-secondary"
+                  style={{ padding: '6px', color: '#ef4444', borderColor: 'transparent' }}
+                  title="Delete Project"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm(`Are you sure you want to delete "${project.name}" from your local list?`)) {
+                      overleafApi.removeProject(project.id);
+                      setProjects(projects.filter(p => p.id !== project.id));
+                    }
+                  }}
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
             </div>
           ))

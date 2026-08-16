@@ -12,18 +12,23 @@ const tauriHttpPlugin = {
   async request({ url, method, headers, body }: any) {
     let tauriBody;
     if (body) {
-      // isomorphic-git passes an array of Uint8Arrays or a single Uint8Array
-      let buf;
-      if (Array.isArray(body)) {
-        let length = body.reduce((acc, b) => acc + b.length, 0);
-        buf = new Uint8Array(length);
-        let offset = 0;
-        for (const b of body) {
-          buf.set(b, offset);
-          offset += b.length;
+      let chunks: Uint8Array[] = [];
+      if (Symbol.asyncIterator in body || Symbol.iterator in body) {
+        for await (const chunk of body) {
+          chunks.push(chunk as Uint8Array);
         }
+      } else if (Array.isArray(body)) {
+        chunks = body;
       } else {
-        buf = body;
+        chunks = [body];
+      }
+      
+      let length = chunks.reduce((acc, b) => acc + b.length, 0);
+      let buf = new Uint8Array(length);
+      let offset = 0;
+      for (const b of chunks) {
+        buf.set(b, offset);
+        offset += b.length;
       }
       tauriBody = Body.bytes(buf);
     }
