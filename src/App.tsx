@@ -319,33 +319,38 @@ export const App: React.FC = () => {
       } else {
         setIsSyncing(true);
         setNotification('Downloading project from Overleaf...');
-        const res = await gitSyncEngine.cloneProject(project.id);
-        setIsSyncing(false);
-        
-        if (res.success) {
-          const newFiles = await gitSyncEngine.readProjectFiles(project.id);
-          if (newFiles.length > 0) {
-            setFiles(newFiles.map(f => ({
-              id: f.name,
-              name: f.name,
-              type: 'file',
-              content: f.content,
-              isModified: false,
-              lastSynced: new Date().toISOString()
-            })));
-            setActiveFileId(newFiles[0].name);
+        try {
+          const res = await gitSyncEngine.cloneProject(project.id);
+          setIsSyncing(false);
+          
+          if (res.success) {
+            const newFiles = await gitSyncEngine.readProjectFiles(project.id);
+            if (newFiles.length > 0) {
+              setFiles(newFiles.map(f => ({
+                id: f.name,
+                name: f.name,
+                type: 'file',
+                content: f.content,
+                isModified: false,
+                lastSynced: new Date().toISOString()
+              })));
+              setActiveFileId(newFiles[0].name);
+              showNotification(`✅ Project cloned! Found ${newFiles.length} files.`);
+            } else {
+               // Remote repository is completely empty, initialize with default
+               const defaultFiles = [
+                 { id: '1', name: 'main.tex', type: 'file' as const, content: DEFAULT_LATEX }
+               ];
+               setFiles(defaultFiles);
+               setActiveFileId('1');
+               showNotification(`⚠️ Project cloned but directory is empty!`);
+            }
           } else {
-             // Remote repository is completely empty, initialize with default
-             const defaultFiles = [
-               { id: '1', name: 'main.tex', type: 'file' as const, content: DEFAULT_LATEX }
-             ];
-             setFiles(defaultFiles);
-             setActiveFileId('1');
+            showNotification(`❌ Clone failed: ${res.message}`);
           }
-          setNotification(res.message);
-        } else {
-          setNotification(`Error: ${res.message}`);
-          // If clone fails, `files` remains empty. The user won't see a misleading default doc.
+        } catch (err: any) {
+          setIsSyncing(false);
+          showNotification(`❌ Error: ${err.message}`);
         }
       }
     }
