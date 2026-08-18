@@ -17,6 +17,7 @@
     "@monaco-editor/react": "^4.6.0",
     "@tauri-apps/api": "^1.6.0",
     "buffer": "^6.0.3",
+    "fake-indexeddb": "^6.2.5",
     "isomorphic-git": "^1.25.10",
     "lucide-react": "^0.344.0",
     "pdfjs-dist": "^3.11.174",

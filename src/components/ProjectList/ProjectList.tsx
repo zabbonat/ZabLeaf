@@ -166,7 +166,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                   onClick={() => {
                     const url = prompt("Paste your Overleaf Project URL:\n(e.g. https://www.overleaf.com/project/65e8...)");
                     if (url) {
-                      const id = url.replace('https://www.overleaf.com/project/', '').replace('https://git.overleaf.com/', '').split('?')[0].trim();
+                      const id = url.replace('https://www.overleaf.com/project/', '').replace('https://git.overleaf.com/', '').split('?')[0].replace(/\/+$/, '').trim();
                       if (id.length > 5) {
                         const newProject: OverleafProject = { id, name: `Project ${id.substring(0, 6)}...`, lastUpdated: new Date().toISOString(), syncStatus: 'offline-only', isLocal: false, owner: 'Me' };
                         setProjects([newProject, ...projects]);
