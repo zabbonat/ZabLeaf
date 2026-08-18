@@ -120,7 +120,6 @@ export class GitSyncService {
         corsProxy: '',
         url,
         singleBranch: true,
-        ref: 'master',
         depth: 1,
         onAuth: () => ({
           username: 'git',
