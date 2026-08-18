@@ -17,6 +17,7 @@
         "open": true,
         "execute": true,
         "scope": [
+          { "name": "git", "cmd": "git", "args": true },
           { "name": "pdflatex", "cmd": "pdflatex", "args": true },
           { "name": "xelatex", "cmd": "xelatex", "args": true },
           { "name": "lualatex", "cmd": "lualatex", "args": true }
@@ -24,12 +25,15 @@
       },
       "fs": {
         "all": true,
-        "scope": ["$APP/*", "$DESKTOP/*", "$DOCUMENT/*"]
+        "scope": ["$APP/*", "$DESKTOP/*", "$DOCUMENT/*", "$HOME/.zabbleaf/**"]
       },
       "http": {
         "all": true,
         "request": true,
         "scope": ["https://git.overleaf.com/*", "https://github.com/*"]
+      },
+      "path": {
+        "all": true
       }
     },
     "bundle": {

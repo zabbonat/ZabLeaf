@@ -73,8 +73,10 @@ export const App: React.FC = () => {
   const activeFile = files.find(f => f.id === activeFileId) || files[0];
   const projectId = currentProject?.id || 'local-default';
 
-  // Detect local TeX installations on startup
+  // Initialize git sync engine and detect local TeX installations on startup
   useEffect(() => {
+    gitSyncEngine.init().catch(console.error);
+    
     localTeXCompiler.detectEngines().then(engines => {
       setDetectedLocalEngines(engines);
       if (engines.length > 0) {
@@ -291,6 +293,7 @@ export const App: React.FC = () => {
   };
 
   const handleOpenProject = async (project: OverleafProject) => {
+    console.log(`[OPEN-PROJECT] Starting with project id="${project.id}", name="${project.name}"`);
     setCurrentProject(project);
     setCurrentView('editor');
     
@@ -299,7 +302,9 @@ export const App: React.FC = () => {
     setActiveFileId('');
     
     // Attempt to load files from local disk (lightning-fs)
+    console.log(`[OPEN-PROJECT] Reading local files...`);
     const localFiles = await gitSyncEngine.readProjectFiles(project.id);
+    console.log(`[OPEN-PROJECT] Found ${localFiles.length} local files`);
     
     if (localFiles.length > 0) {
       setFiles(localFiles.map(f => ({
@@ -313,18 +318,24 @@ export const App: React.FC = () => {
       setActiveFileId(localFiles[0].name);
     } else {
       // Empty local disk, need to clone!
-      if (!gitSyncEngine.getCredentials()?.gitToken) {
+      const creds = gitSyncEngine.getCredentials();
+      console.log(`[OPEN-PROJECT] No local files. Credentials present: ${!!creds}, token present: ${!!creds?.gitToken}`);
+      
+      if (!creds?.gitToken) {
         setIsAuthOpen(true);
         setNotification('Please connect your Overleaf account to download this project.');
       } else {
         setIsSyncing(true);
         setNotification('Downloading project from Overleaf...');
+        console.log(`[OPEN-PROJECT] Starting clone for project "${project.id}"...`);
         try {
           const res = await gitSyncEngine.cloneProject(project.id);
+          console.log(`[OPEN-PROJECT] Clone result: success=${res.success}, message="${res.message}"`);
           setIsSyncing(false);
           
           if (res.success) {
             const newFiles = await gitSyncEngine.readProjectFiles(project.id);
+            console.log(`[OPEN-PROJECT] After clone, found ${newFiles.length} files: ${newFiles.map(f => f.name).join(', ')}`);
             if (newFiles.length > 0) {
               setFiles(newFiles.map(f => ({
                 id: f.name,
@@ -349,6 +360,7 @@ export const App: React.FC = () => {
             showNotification(`❌ Clone failed: ${res.message}`);
           }
         } catch (err: any) {
+          console.error(`[OPEN-PROJECT] Exception during clone:`, err);
           setIsSyncing(false);
           showNotification(`❌ Error: ${err.message}`);
         }
