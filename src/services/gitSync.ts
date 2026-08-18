@@ -1,6 +1,15 @@
 import git from 'isomorphic-git';
 import LightningFS from '@isomorphic-git/lightning-fs';
 import { fetch, ResponseType, Body } from '@tauri-apps/api/http';
+import { writeTextFile, BaseDirectory } from '@tauri-apps/api/fs';
+
+async function logToFile(msg: string) {
+  try {
+    // Append isn't natively trivial in tauri v1 without reading first, so we'll just write a unique file per log or use Date.now()
+    await writeTextFile(`zabbleaf-debug-${Date.now()}.log`, msg, { dir: BaseDirectory.AppLocalData });
+    console.log(msg);
+  } catch (e) { console.error(e); }
+}
 
 export interface OverleafCredentials {
   email: string;
@@ -111,15 +120,34 @@ export class GitSyncService {
         corsProxy: '',
         url,
         singleBranch: true,
+        ref: 'master',
         depth: 1,
         onAuth: () => ({
           username: 'git',
           password: this.credentials!.gitToken
         })
       });
+      
+      let debugLog = `Clone success for ${dir}\n`;
+      const walk = async (currentDir: string, level: number) => {
+        try {
+          const entries = await fs.promises.readdir(currentDir);
+          for (const e of entries) {
+            debugLog += `${'  '.repeat(level)}- ${e}\n`;
+            if (e !== '.git') {
+              const st = await fs.promises.stat(`${currentDir}/${e}`);
+              if (st.isDirectory()) await walk(`${currentDir}/${e}`, level + 1);
+            }
+          }
+        } catch (e: any) { debugLog += `${'  '.repeat(level)}ERROR: ${e.message}\n`; }
+      };
+      await walk(dir, 0);
+      await logToFile(debugLog);
+
       return { success: true, message: 'Project cloned successfully!' };
     } catch (err: any) {
       console.error(err);
+      await logToFile(`Clone failed: ${err.message || err}`);
       return { success: false, message: `Clone error: ${err.message || err}` };
     }
   }
