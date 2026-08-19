@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { SyncToolbar, CompilerEngine, CompilerOption } from './components/SyncToolbar/SyncToolbar';
 import { FileTree, FileNode } from './components/FileTree/FileTree';
 import { LaTeXEditor } from './components/Editor/LaTeXEditor';
@@ -52,6 +52,9 @@ export const App: React.FC = () => {
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(overleafAuth.isLoggedIn());
+  // Project the user asked to open before connecting an account; opened again
+  // as soon as credentials are saved.
+  const [pendingProject, setPendingProject] = useState<OverleafProject | null>(null);
 
   const [currentProject, setCurrentProject] = useState<OverleafProject | null>(null);
   const [files, setFiles] = useState<FileNode[]>([
@@ -75,8 +78,15 @@ export const App: React.FC = () => {
 
   // Initialize git sync engine and detect local TeX installations on startup
   useEffect(() => {
-    gitSyncEngine.init().catch(console.error);
-    
+    gitSyncEngine.init().then(() => {
+      // Credentials live in the sync engine, so the header must reflect what it
+      // actually restored rather than a stale "logged in" flag.
+      setIsLoggedIn(!!gitSyncEngine.getCredentials()?.gitToken);
+      if (!gitSyncEngine.getGitVersion()) {
+        showNotification('⚠️ git was not found on this system. Install Git to download Overleaf projects.');
+      }
+    }).catch(console.error);
+
     localTeXCompiler.detectEngines().then(engines => {
       setDetectedLocalEngines(engines);
       if (engines.length > 0) {
@@ -151,6 +161,19 @@ export const App: React.FC = () => {
     setTimeout(() => setNotification(null), 4500);
   };
 
+  // Editing fires on every keystroke; writing through to disk that often would
+  // stutter the editor, so coalesce writes per file.
+  const saveTimers = useRef<Record<string, number>>({});
+
+  const queueSave = (project: string, fileName: string, content: string) => {
+    const key = `${project}:${fileName}`;
+    window.clearTimeout(saveTimers.current[key]);
+    saveTimers.current[key] = window.setTimeout(() => {
+      delete saveTimers.current[key];
+      gitSyncEngine.writeFile(project, fileName, content).catch(console.error);
+    }, 400);
+  };
+
   const handleCompile = useCallback(async () => {
     setIsCompiling(true);
     const content = activeFile?.content || '';
@@ -207,20 +230,20 @@ export const App: React.FC = () => {
 
   const handleSync = async () => {
     if (!currentProject) return;
-    
+
     setIsSyncing(true);
-    setNotification('Syncing with Overleaf...');
-    
-    // Save any active modifications to disk first
+    setNotification('🔄 Syncing with Overleaf...');
+
+    // Flush every edit to disk before git looks at the working tree.
     for (const f of files) {
       if (f.isModified) {
         await gitSyncEngine.writeFile(currentProject.id, f.name, f.content || '');
       }
     }
-    
+
     const result = await gitSyncEngine.syncProject(currentProject.id);
-    
-    // Reload files from disk after sync
+
+    // Reload from disk so a rebase that brought in remote edits is reflected.
     const updatedFiles = await gitSyncEngine.readProjectFiles(currentProject.id);
     if (updatedFiles.length > 0) {
       setFiles(updatedFiles.map(f => ({
@@ -235,28 +258,27 @@ export const App: React.FC = () => {
         setActiveFileId(updatedFiles[0].name);
       }
     }
-    
+
+    overleafApi.updateProject(currentProject.id, {
+      syncStatus: result.success ? 'synced' : 'local-changes',
+      lastUpdated: new Date().toISOString()
+    });
+
     setIsSyncing(false);
-    setNotification(result.message);
+    showNotification(result.success ? `✅ ${result.message}` : `❌ ${result.message}`);
   };
 
   const handleLogin = () => {
     setIsAuthOpen(true);
   };
 
-  const handleSaveCredentials = (email: string, _token: string, _projectId: string) => {
-    setIsLoggedIn(true);
-    showNotification(`🔒 Account connected: ${email}`);
-  };
-
   const handleContentChange = (newContent: string | undefined) => {
     const content = newContent || '';
-    setFiles(prev => prev.map(f => 
+    setFiles(prev => prev.map(f =>
       f.id === activeFileId ? { ...f, content, isModified: true } : f
     ));
-    // Save directly to local disk for safety
     if (currentProject && activeFile) {
-      gitSyncEngine.writeFile(currentProject.id, activeFile.name, content).catch(console.error);
+      queueSave(currentProject.id, activeFile.name, content);
     }
   };
 
@@ -267,6 +289,9 @@ export const App: React.FC = () => {
       : `% ${fileName}\n`;
     setFiles(prev => [...prev, { id: newId, name: fileName, type: 'file', content: defaultContent }]);
     setActiveFileId(newId);
+    if (currentProject) {
+      gitSyncEngine.writeFile(currentProject.id, fileName, defaultContent).catch(console.error);
+    }
     showNotification(`📄 Created "${fileName}"`);
   };
 
@@ -293,78 +318,75 @@ export const App: React.FC = () => {
   };
 
   const handleOpenProject = async (project: OverleafProject) => {
-    console.log(`[OPEN-PROJECT] Starting with project id="${project.id}", name="${project.name}"`);
+    console.log(`[OPEN-PROJECT] id="${project.id}" name="${project.name}" local=${project.isLocal}`);
     setCurrentProject(project);
     setCurrentView('editor');
-    
-    // Clear default files while loading/cloning
     setFiles([]);
     setActiveFileId('');
-    
-    // Attempt to load files from local disk (lightning-fs)
-    console.log(`[OPEN-PROJECT] Reading local files...`);
-    const localFiles = await gitSyncEngine.readProjectFiles(project.id);
-    console.log(`[OPEN-PROJECT] Found ${localFiles.length} local files`);
-    
-    if (localFiles.length > 0) {
-      setFiles(localFiles.map(f => ({
+    overleafApi.addProject(project);
+
+    const alreadyOnDisk = await gitSyncEngine.hasProject(project.id);
+    console.log(`[OPEN-PROJECT] Already cloned: ${alreadyOnDisk}`);
+
+    if (!alreadyOnDisk && !project.isLocal) {
+      if (!gitSyncEngine.getCredentials()?.gitToken) {
+        // Reopen this project automatically once the token is saved.
+        setPendingProject(project);
+        setIsAuthOpen(true);
+        showNotification('🔑 Connect your Overleaf account to download this project.');
+        return;
+      }
+
+      setIsSyncing(true);
+      setNotification('⬇️ Downloading project from Overleaf...');
+      const res = await gitSyncEngine.cloneProject(project.id);
+      setIsSyncing(false);
+      console.log(`[OPEN-PROJECT] Clone: success=${res.success} message="${res.message}"`);
+
+      if (!res.success) {
+        showNotification(`❌ ${res.message}`);
+        return;
+      }
+    }
+
+    const loaded = await gitSyncEngine.readProjectFiles(project.id);
+    console.log(`[OPEN-PROJECT] Loaded ${loaded.length} files: ${loaded.map(f => f.name).join(', ')}`);
+
+    if (loaded.length > 0) {
+      setFiles(loaded.map(f => ({
         id: f.name,
         name: f.name,
         type: 'file',
         content: f.content,
         isModified: false,
-        lastSynced: project.lastUpdated
+        lastSynced: new Date().toISOString()
       })));
-      setActiveFileId(localFiles[0].name);
-    } else {
-      // Empty local disk, need to clone!
-      const creds = gitSyncEngine.getCredentials();
-      console.log(`[OPEN-PROJECT] No local files. Credentials present: ${!!creds}, token present: ${!!creds?.gitToken}`);
-      
-      if (!creds?.gitToken) {
-        setIsAuthOpen(true);
-        setNotification('Please connect your Overleaf account to download this project.');
-      } else {
-        setIsSyncing(true);
-        setNotification('Downloading project from Overleaf...');
-        console.log(`[OPEN-PROJECT] Starting clone for project "${project.id}"...`);
-        try {
-          const res = await gitSyncEngine.cloneProject(project.id);
-          console.log(`[OPEN-PROJECT] Clone result: success=${res.success}, message="${res.message}"`);
-          setIsSyncing(false);
-          
-          if (res.success) {
-            const newFiles = await gitSyncEngine.readProjectFiles(project.id);
-            console.log(`[OPEN-PROJECT] After clone, found ${newFiles.length} files: ${newFiles.map(f => f.name).join(', ')}`);
-            if (newFiles.length > 0) {
-              setFiles(newFiles.map(f => ({
-                id: f.name,
-                name: f.name,
-                type: 'file',
-                content: f.content,
-                isModified: false,
-                lastSynced: new Date().toISOString()
-              })));
-              setActiveFileId(newFiles[0].name);
-              showNotification(`✅ Project cloned! Found ${newFiles.length} files.`);
-            } else {
-               // Remote repository is completely empty, initialize with default
-               const defaultFiles = [
-                 { id: '1', name: 'main.tex', type: 'file' as const, content: DEFAULT_LATEX }
-               ];
-               setFiles(defaultFiles);
-               setActiveFileId('1');
-               showNotification(`⚠️ Project cloned but directory is empty!`);
-            }
-          } else {
-            showNotification(`❌ Clone failed: ${res.message}`);
-          }
-        } catch (err: any) {
-          console.error(`[OPEN-PROJECT] Exception during clone:`, err);
-          setIsSyncing(false);
-          showNotification(`❌ Error: ${err.message}`);
-        }
-      }
+      setActiveFileId(loaded[0].name);
+      overleafApi.updateProject(project.id, { isLocal: true, syncStatus: 'synced' });
+      showNotification(`✅ Opened "${project.name}" — ${loaded.length} file${loaded.length === 1 ? '' : 's'}.`);
+      return;
+    }
+
+    // Nothing readable on disk: a brand-new local project, or an Overleaf
+    // project whose repository holds no text files.
+    setFiles([{ id: 'main.tex', name: 'main.tex', type: 'file', content: DEFAULT_LATEX }]);
+    setActiveFileId('main.tex');
+    await gitSyncEngine.writeFile(project.id, 'main.tex', DEFAULT_LATEX);
+    showNotification(
+      project.isLocal
+        ? `📄 Created "${project.name}" with a starter main.tex.`
+        : '⚠️ This Overleaf project has no text files — starting from a blank main.tex.'
+    );
+  };
+
+  const handleSaveCredentials = (email: string, _token: string, _projectId: string) => {
+    setIsLoggedIn(true);
+    showNotification(`🔒 Account connected: ${email}`);
+
+    if (pendingProject) {
+      const retry = pendingProject;
+      setPendingProject(null);
+      handleOpenProject(retry);
     }
   };
 
@@ -412,6 +434,14 @@ export const App: React.FC = () => {
           onOpenProject={handleOpenProject}
           onLogin={handleLogin}
           onNewProject={handleNewProject}
+        />
+
+        {/* Also needed here: the login button on this screen opens it. */}
+        <AuthModal
+          isOpen={isAuthOpen}
+          onClose={() => setIsAuthOpen(false)}
+          onSaveCredentials={handleSaveCredentials}
+          savedEmail={overleafAuth.getEmail()}
         />
       </div>
     );

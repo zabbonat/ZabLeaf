@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FolderGit2, Cloud, CloudOff, HardDrive, Clock, Search, Plus, Download, ArrowRight, RefreshCw, LogIn, Trash2 } from 'lucide-react';
 import { OverleafProject, overleafApi } from '../../services/overleafApi';
+import { extractProjectId } from '../../services/gitSync';
 
 interface ProjectListProps {
   isLoggedIn: boolean;
@@ -33,6 +34,36 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   const filteredProjects = projects.filter(p =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  /** Asks for an Overleaf URL, registers the project, and opens it. */
+  const addProjectFromUrl = () => {
+    const url = prompt('Paste your Overleaf Project URL here:\n(e.g. https://www.overleaf.com/project/65e8...)');
+    if (!url) return;
+
+    const id = extractProjectId(url);
+    if (id.length < 6) {
+      alert('That does not look like an Overleaf project URL.\n\nExpected something like:\nhttps://www.overleaf.com/project/6a6a84fe7cba2c6cd0ff9f3e');
+      return;
+    }
+
+    const existing = projects.find(p => p.id === id);
+    if (existing) {
+      onOpenProject(existing);
+      return;
+    }
+
+    const newProject: OverleafProject = {
+      id,
+      name: `Project ${id.substring(0, 6)}…`,
+      lastUpdated: new Date().toISOString(),
+      syncStatus: 'online-only',
+      isLocal: false,
+      owner: 'Me'
+    };
+    overleafApi.addProject(newProject);
+    setProjects([newProject, ...projects]);
+    onOpenProject(newProject);
+  };
 
   const formatDate = (isoDate: string) => {
     const d = new Date(isoDate);
@@ -110,30 +141,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
           <button className="btn-secondary" onClick={loadProjects}>
             <RefreshCw size={14} /> Refresh
           </button>
-          <button 
-            className="btn-sync" 
-            onClick={() => {
-              const url = prompt("Paste your Overleaf Project URL here:\n(e.g. https://www.overleaf.com/project/65e8...)");
-              if (url) {
-                const id = url.replace('https://www.overleaf.com/project/', '').replace('https://git.overleaf.com/', '').split('?')[0].trim();
-                if (id.length > 5) {
-                  const newProject: OverleafProject = {
-                    id: id,
-                    name: `Project ${id.substring(0, 6)}...`,
-                    lastUpdated: new Date().toISOString(),
-                    syncStatus: 'offline-only',
-                    isLocal: false,
-                    owner: 'Me'
-                  };
-                  setProjects([newProject, ...projects]);
-                  // Automatically open the project to start cloning
-                  onOpenProject(newProject);
-                } else {
-                  alert("Invalid Overleaf URL");
-                }
-              }
-            }}
-          >
+          <button className="btn-sync" onClick={addProjectFromUrl}>
             <Download size={14} /> Add from URL
           </button>
           <button className="btn-secondary" onClick={onNewProject}>
@@ -160,20 +168,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({
             </p>
             {!searchQuery && (
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button 
-                  className="btn-sync" 
+                <button
+                  className="btn-sync"
                   style={{ padding: '12px 24px', fontSize: '0.95rem' }}
-                  onClick={() => {
-                    const url = prompt("Paste your Overleaf Project URL:\n(e.g. https://www.overleaf.com/project/65e8...)");
-                    if (url) {
-                      const id = url.replace('https://www.overleaf.com/project/', '').replace('https://git.overleaf.com/', '').split('?')[0].replace(/\/+$/, '').trim();
-                      if (id.length > 5) {
-                        const newProject: OverleafProject = { id, name: `Project ${id.substring(0, 6)}...`, lastUpdated: new Date().toISOString(), syncStatus: 'offline-only', isLocal: false, owner: 'Me' };
-                        setProjects([newProject, ...projects]);
-                        onOpenProject(newProject);
-                      }
-                    }
-                  }}
+                  onClick={addProjectFromUrl}
                 >
                   <Download size={16} /> Add Overleaf Project
                 </button>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Shield, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { gitSyncEngine } from '../../services/gitSync';
 import { overleafAuth } from '../../services/overleafAuth';
@@ -17,16 +17,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   savedEmail = ''
 }) => {
   const [email, setEmail] = useState(savedEmail);
-  const [gitToken, setGitToken] = useState(gitSyncEngine.getCredentials()?.gitToken || '');
+  const [gitToken, setGitToken] = useState('');
+
+  // The sync engine restores saved credentials asynchronously at startup, so
+  // read them when the dialog opens rather than when it first mounts.
+  useEffect(() => {
+    if (!isOpen) return;
+    const stored = gitSyncEngine.getCredentials();
+    setEmail(stored?.email || savedEmail);
+    setGitToken(stored?.gitToken || '');
+  }, [isOpen, savedEmail]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedEmail = email.trim();
+    const trimmedToken = gitToken.trim();
     // Save to overleafAuth for display, and gitSyncEngine for actual sync
-    overleafAuth.saveSession({ cookie: '', email, isLoggedIn: true, expiresAt: Date.now() + 99999999 });
-    gitSyncEngine.setCredentials({ email, gitToken });
-    onSaveCredentials(email, gitToken, '');
+    overleafAuth.saveSession({
+      cookie: '',
+      email: trimmedEmail,
+      isLoggedIn: true,
+      expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 365
+    });
+    gitSyncEngine.setCredentials({ email: trimmedEmail, gitToken: trimmedToken });
+    onSaveCredentials(trimmedEmail, trimmedToken, '');
     onClose();
   };
 

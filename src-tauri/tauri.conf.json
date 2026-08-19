@@ -17,7 +17,6 @@
         "open": true,
         "execute": true,
         "scope": [
-          { "name": "git", "cmd": "git", "args": true },
           { "name": "pdflatex", "cmd": "pdflatex", "args": true },
           { "name": "xelatex", "cmd": "xelatex", "args": true },
           { "name": "lualatex", "cmd": "lualatex", "args": true }
@@ -25,7 +24,7 @@
       },
       "fs": {
         "all": true,
-        "scope": ["$APP/*", "$DESKTOP/*", "$DOCUMENT/*", "$HOME/.zabbleaf/**"]
+        "scope": ["$APP", "$APP/**", "$DESKTOP/**", "$DOCUMENT/**"]
       },
       "http": {
         "all": true,
