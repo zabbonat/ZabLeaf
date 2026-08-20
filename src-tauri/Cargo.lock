@@ -4729,6 +4729,7 @@ dependencies = [
 name = "zabbleaf"
 version = "2.1.0"
 dependencies = [
+ "base64 0.22.1",
  "serde",
  "serde_json",
  "tauri",

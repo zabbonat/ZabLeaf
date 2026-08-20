@@ -1,14 +1,19 @@
 /**
  * Local TeX Compiler Service
- * Detects and uses locally installed TeX distributions (TeX Live, MiKTeX)
- * via Tauri shell commands to compile real PDF output.
+ *
+ * Compiles the project with a locally installed TeX distribution (TeX Live or
+ * MiKTeX). The actual work happens in the Rust backend, which runs the engine
+ * inside the project directory — that is what lets \input, .bib files, class
+ * files and images resolve — and writes the .aux/.log/.pdf output to
+ * ~/.zabbleaf/build/<projectId> so the cloned repository stays clean.
  */
+
+import { invoke } from '@tauri-apps/api/tauri';
 
 export type TeXEngine = 'pdflatex' | 'xelatex' | 'lualatex';
 
 export interface LocalCompileResult {
   success: boolean;
-  pdfPath: string | null;
   pdfUrl: string | null;
   log: string;
   errors: string[];
@@ -21,133 +26,111 @@ export interface DetectedEngine {
   version: string;
 }
 
+export interface InstallResult {
+  success: boolean;
+  message: string;
+  log: string;
+}
+
+interface CompileOutcome {
+  success: boolean;
+  message: string;
+  log: string;
+  pdfBase64: string | null;
+}
+
 export class LocalTeXCompilerService {
   private detectedEngines: DetectedEngine[] = [];
   private hasChecked = false;
+  private previousPdfUrl: string | null = null;
 
-  /**
-   * Detects which TeX engines are available on the system.
-   * Uses Tauri's shell API to check for pdflatex, xelatex, lualatex.
-   */
-  async detectEngines(): Promise<DetectedEngine[]> {
-    if (this.hasChecked) return this.detectedEngines;
+  /** Detects which TeX engines are on PATH. Cached after the first call. */
+  async detectEngines(force = false): Promise<DetectedEngine[]> {
+    if (this.hasChecked && !force) return this.detectedEngines;
     this.hasChecked = true;
-    this.detectedEngines = [];
 
-    const engines: TeXEngine[] = ['pdflatex', 'xelatex', 'lualatex'];
-
-    for (const engine of engines) {
-      try {
-        // Use Tauri's shell API to check if the engine exists
-        const { Command } = await import('@tauri-apps/api/shell');
-        const cmd = new Command(engine, ['--version']);
-        
-        const output = await cmd.execute();
-        
-        if (output.code === 0) {
-          const version = output.stdout.split('\n')[0] || engine;
-          this.detectedEngines.push({
-            engine,
-            path: engine,
-            version: version.trim()
-          });
-        }
-      } catch {
-        // Engine not available or not in Tauri environment
-      }
+    try {
+      const found = await invoke<DetectedEngine[]>('zl_detect_engines');
+      this.detectedEngines = found.map(e => ({
+        engine: e.engine as TeXEngine,
+        path: e.path,
+        version: e.version
+      }));
+      console.log(`[LocalTeX] Detected engines: ${this.detectedEngines.map(e => e.engine).join(', ') || 'none'}`);
+    } catch (err) {
+      console.error('[LocalTeX] Engine detection failed:', err);
+      this.detectedEngines = [];
     }
 
     return this.detectedEngines;
   }
 
   /**
-   * Compiles a LaTeX document using a local TeX engine.
-   * Writes the file to a temp directory and runs the compiler.
+   * Compiles `mainFile` of the given project. The caller must have written any
+   * unsaved edits to disk first — the engine reads the files, not the editor.
    */
   async compile(
-    texContent: string,
-    engine: TeXEngine = 'pdflatex',
-    fileName: string = 'main.tex'
+    projectId: string,
+    mainFile: string,
+    engine: TeXEngine = 'pdflatex'
   ): Promise<LocalCompileResult> {
     try {
-      const { Command } = await import('@tauri-apps/api/shell');
-      const { appDataDir, join } = await import('@tauri-apps/api/path');
-      const { writeTextFile, readBinaryFile, exists, createDir } = await import('@tauri-apps/api/fs');
+      const outcome = await invoke<CompileOutcome>('zl_compile_project', {
+        projectId,
+        engine,
+        mainFile
+      });
 
-      // Create a temp compilation directory
-      const appDir = await appDataDir();
-      const compileDir = await join(appDir, 'compile-tmp');
-      
-      if (!(await exists(compileDir))) {
-        await createDir(compileDir, { recursive: true });
+      if (outcome.success && outcome.pdfBase64) {
+        if (this.previousPdfUrl) URL.revokeObjectURL(this.previousPdfUrl);
+        const bytes = Uint8Array.from(atob(outcome.pdfBase64), c => c.charCodeAt(0));
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        this.previousPdfUrl = url;
+
+        return { success: true, pdfUrl: url, log: outcome.log, errors: [], engine };
       }
 
-      // Write the .tex file
-      const texPath = await join(compileDir, fileName);
-      await writeTextFile(texPath, texContent);
-
-      // Run the compiler
-      const cmd = new Command(engine, [
-        '-interaction=nonstopmode',
-        '-output-directory', compileDir,
-        texPath
-      ]);
-
-      const output = await cmd.execute();
-      const log = output.stdout + '\n' + output.stderr;
-
-      // Check for output PDF
-      const pdfName = fileName.replace('.tex', '.pdf');
-      const pdfPath = await join(compileDir, pdfName);
-      
-      if (await exists(pdfPath)) {
-        // Read the PDF and create a blob URL for the viewer
-        const pdfBytes = await readBinaryFile(pdfPath);
-        const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
-        const pdfUrl = URL.createObjectURL(blob);
-
-        return {
-          success: true,
-          pdfPath,
-          pdfUrl,
-          log,
-          errors: [],
-          engine
-        };
-      } else {
-        // Extract errors from log
-        const errorLines = log.split('\n').filter(l => l.startsWith('!') || l.includes('Error'));
-        return {
-          success: false,
-          pdfPath: null,
-          pdfUrl: null,
-          log,
-          errors: errorLines.length > 0 ? errorLines : ['Compilation failed. Check log for details.'],
-          engine
-        };
-      }
-    } catch (err: any) {
       return {
         success: false,
-        pdfPath: null,
         pdfUrl: null,
-        log: `Failed to run ${engine}: ${err.message || err}\n\nMake sure ${engine} is installed and in your system PATH.\nInstall TeX Live: https://tug.org/texlive/\nInstall MiKTeX: https://miktex.org/download`,
-        errors: [err.message || `${engine} not found`],
+        log: outcome.log || outcome.message,
+        errors: [outcome.message],
+        engine
+      };
+    } catch (err: any) {
+      const message = String(err?.message || err);
+      return {
+        success: false,
+        pdfUrl: null,
+        log:
+          `Failed to run ${engine}: ${message}\n\n` +
+          `Make sure ${engine} is installed and on your system PATH.\n` +
+          `MiKTeX: https://miktex.org/download\nTeX Live: https://tug.org/texlive/`,
+        errors: [message],
         engine
       };
     }
   }
 
   /**
-   * Returns the list of detected engines.
+   * Downloads and installs a TeX distribution. Only ever call this from an
+   * explicit user action — it installs system software and takes minutes.
    */
+  async install(): Promise<InstallResult> {
+    try {
+      const result = await invoke<InstallResult>('zl_install_tex');
+      if (result.success) await this.detectEngines(true);
+      return result;
+    } catch (err: any) {
+      const message = String(err?.message || err);
+      return { success: false, message, log: message };
+    }
+  }
+
   getDetectedEngines(): DetectedEngine[] {
     return this.detectedEngines;
   }
 
-  /**
-   * Checks if any local TeX engine is available.
-   */
   isAvailable(): boolean {
     return this.detectedEngines.length > 0;
   }

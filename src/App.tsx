@@ -5,6 +5,7 @@ import { LaTeXEditor } from './components/Editor/LaTeXEditor';
 import { PDFPreview } from './components/PDFViewer/PDFPreview';
 import { AuthModal } from './components/AuthModal/AuthModal';
 import { ProjectList } from './components/ProjectList/ProjectList';
+import { LaTeXSetupBanner, LaTeXReadyNotice } from './components/LaTeXSetup/LaTeXSetupBanner';
 import { VersionHistory } from './components/VersionHistory/VersionHistory';
 import { overleafAuth } from './services/overleafAuth';
 import { OverleafProject, overleafApi } from './services/overleafApi';
@@ -66,12 +67,18 @@ export const App: React.FC = () => {
   const [folderPath, setFolderPath] = useState<string>('');
   const [notification, setNotification] = useState<string | null>(null);
   const [compiledPdfUrl, setCompiledPdfUrl] = useState<string | null>(null);
+  const [compiledIsPdf, setCompiledIsPdf] = useState<boolean>(false);
   const [compileLog, setCompileLog] = useState<string>('');
   const [snapshots, setSnapshots] = useState<VersionSnapshot[]>([]);
 
   // Compiler Engines State
   const [selectedCompiler, setSelectedCompiler] = useState<CompilerEngine>('html-preview');
   const [detectedLocalEngines, setDetectedLocalEngines] = useState<DetectedEngine[]>([]);
+  const [isInstallingTex, setIsInstallingTex] = useState<boolean>(false);
+  const [texJustInstalled, setTexJustInstalled] = useState<string>('');
+  const [texSetupDismissed, setTexSetupDismissed] = useState<boolean>(
+    () => localStorage.getItem('zabbleaf_tex_setup_dismissed') === '1'
+  );
 
   const activeFile = files.find(f => f.id === activeFileId) || files[0];
   const projectId = currentProject?.id || 'local-default';
@@ -87,30 +94,51 @@ export const App: React.FC = () => {
       }
     }).catch(console.error);
 
-    localTeXCompiler.detectEngines().then(engines => {
-      setDetectedLocalEngines(engines);
-      if (engines.length > 0) {
-        const pdflatex = engines.find(e => e.engine === 'pdflatex');
-        if (pdflatex) {
-          setSelectedCompiler('pdflatex');
-        } else {
-          setSelectedCompiler(engines[0].engine);
-        }
-      }
-    });
+    localTeXCompiler.detectEngines().then(applyDetectedEngines);
   }, []);
+
+  const applyDetectedEngines = (engines: DetectedEngine[]) => {
+    setDetectedLocalEngines(engines);
+    if (engines.length > 0) {
+      const pdflatex = engines.find(e => e.engine === 'pdflatex');
+      setSelectedCompiler(pdflatex ? 'pdflatex' : engines[0].engine);
+    }
+  };
+
+  const handleInstallTeX = async () => {
+    setIsInstallingTex(true);
+    setNotification('⬇️ Installing LaTeX — this takes a few minutes...');
+
+    const result = await localTeXCompiler.install();
+    const engines = localTeXCompiler.getDetectedEngines();
+    applyDetectedEngines(engines);
+    setIsInstallingTex(false);
+
+    if (result.success && engines.length > 0) {
+      setTexJustInstalled(engines[0].version);
+      showNotification(`✅ ${result.message}`);
+    } else {
+      setCompileLog(`${result.message}\n\n${result.log}`);
+      showNotification(`❌ ${result.message}`);
+    }
+  };
+
+  const handleDismissTexSetup = () => {
+    setTexSetupDismissed(true);
+    localStorage.setItem('zabbleaf_tex_setup_dismissed', '1');
+  };
 
   const compilerOptions: CompilerOption[] = [
     {
       id: 'html-preview',
-      label: 'Quick HTML Preview',
-      description: 'Fast offline HTML-based preview. No TeX required.',
+      label: 'Quick Text Preview',
+      description: 'Rough offline text preview, not a real PDF. No TeX required.',
       available: true
     },
     {
       id: 'overleaf-cloud',
-      label: 'Overleaf Cloud (Remote)',
-      description: 'Compile via Overleaf cloud servers. Requires internet & token.',
+      label: 'Push to Overleaf & open',
+      description: 'Pushes your changes, then opens the project in your browser where Overleaf compiles it.',
       available: overleafCompiler.isAvailable()
     },
     {
@@ -184,6 +212,7 @@ export const App: React.FC = () => {
 
       if (result.success && result.pdfUrl) {
         setCompiledPdfUrl(result.pdfUrl);
+        setCompiledIsPdf(false);
         setCompileLog(result.log);
         versionHistory.saveSnapshot(projectId, activeFile?.name || 'main.tex', content, `Compiled ${activeFile?.name}`);
         setSnapshots(versionHistory.getProjectHistory(projectId));
@@ -198,32 +227,47 @@ export const App: React.FC = () => {
         showNotification('⚠️ Open a project to compile with Overleaf Cloud.');
         return;
       }
+      // This pushes to the real Overleaf project, so never do it silently.
+      const confirmed = window.confirm(
+        `Compiling on Overleaf pushes your local changes to "${currentProject.name}" ` +
+        `and opens the project in your browser, where Overleaf compiles it.\n\n` +
+        `Overleaf blocks embedding, so the PDF cannot appear inside ZabbLeaf.\n\nPush and open now?`
+      );
+      if (!confirmed) {
+        setIsCompiling(false);
+        return;
+      }
+
       const fileList = files.map(f => ({ name: f.name, content: f.content || '' }));
       const result = await overleafCompiler.compile(currentProject.id, fileList);
       setIsCompiling(false);
-
-      if (result.success && result.pdfUrl) {
-        setCompiledPdfUrl(result.pdfUrl);
-        setCompileLog(result.log);
-        showNotification('✅ Compiled remotely via Overleaf Cloud!');
-      } else {
-        setCompileLog(result.log);
-        showNotification(`❌ ${result.log}`);
-      }
+      setCompileLog(result.log);
+      showNotification(
+        result.success
+          ? '🌐 Pushed to Overleaf and opened in your browser.'
+          : `❌ ${result.errors[0] || 'Overleaf compilation failed.'}`
+      );
     } else {
-      // Local TeX compilation (pdflatex, xelatex, lualatex)
-      const result = await localTeXCompiler.compile(content, selectedCompiler as TeXEngine, activeFile?.name || 'main.tex');
+      // Local TeX compilation (pdflatex, xelatex, lualatex). The engine reads
+      // files from disk, so flush the editor first — and compile the whole
+      // project directory so \input, .bib and class files resolve.
+      const fileName = activeFile?.name || 'main.tex';
+      for (const f of files) {
+        await gitSyncEngine.writeFile(projectId, f.name, f.content || '');
+      }
+
+      const result = await localTeXCompiler.compile(projectId, fileName, selectedCompiler as TeXEngine);
       setIsCompiling(false);
+      setCompileLog(result.log);
 
       if (result.success && result.pdfUrl) {
         setCompiledPdfUrl(result.pdfUrl);
-        setCompileLog(result.log);
-        versionHistory.saveSnapshot(projectId, activeFile?.name || 'main.tex', content, `Compiled with ${selectedCompiler}`);
+        setCompiledIsPdf(true);
+        versionHistory.saveSnapshot(projectId, fileName, content, `Compiled with ${selectedCompiler}`);
         setSnapshots(versionHistory.getProjectHistory(projectId));
-        showNotification(`✅ Compiled successfully using local ${selectedCompiler}!`);
+        showNotification(`✅ Compiled ${fileName} with ${selectedCompiler}.`);
       } else {
-        setCompileLog(result.log);
-        showNotification(`❌ Local ${selectedCompiler} compilation failed.`);
+        showNotification(`❌ ${result.errors[0] || `${selectedCompiler} compilation failed.`}`);
       }
     }
   }, [activeFile, currentProject, files, projectId, selectedCompiler]);
@@ -429,6 +473,20 @@ export const App: React.FC = () => {
             {notification}
           </div>
         )}
+        <div style={{ padding: '0 32px' }}>
+          {texJustInstalled ? (
+            <LaTeXReadyNotice version={texJustInstalled} />
+          ) : (
+            <LaTeXSetupBanner
+              isInstalled={detectedLocalEngines.length > 0}
+              isInstalling={isInstallingTex}
+              isDismissed={texSetupDismissed}
+              onInstall={handleInstallTeX}
+              onDismiss={handleDismissTexSetup}
+            />
+          )}
+        </div>
+
         <ProjectList
           isLoggedIn={isLoggedIn}
           onOpenProject={handleOpenProject}
@@ -497,6 +555,7 @@ export const App: React.FC = () => {
             compiledUrl={compiledPdfUrl}
             compileLog={compileLog}
             isCompiling={isCompiling}
+            isPdf={compiledIsPdf}
           />
         </div>
 

@@ -73,6 +73,17 @@ fn projects_root() -> Result<PathBuf, String> {
     Ok(home_dir()?.join(".zabbleaf").join("projects"))
 }
 
+/// LaTeX writes a pile of .aux/.log/.out files next to the sources. Keeping them
+/// out of the cloned repository is what stops `git add -A` from pushing build
+/// artifacts to the user's Overleaf project.
+fn build_root() -> Result<PathBuf, String> {
+    Ok(home_dir()?.join(".zabbleaf").join("build"))
+}
+
+fn build_dir(project_id: &str) -> Result<PathBuf, String> {
+    Ok(build_root()?.join(sanitize_project_id(project_id)?))
+}
+
 /// Project ids come from user-pasted URLs, so they must never be able to escape
 /// the projects root.
 fn sanitize_project_id(project_id: &str) -> Result<String, String> {
@@ -594,6 +605,436 @@ fn zl_delete_project(project_id: String) -> Result<(), String> {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Local LaTeX compilation
+// ---------------------------------------------------------------------------
+
+const TEX_ENGINES: &[&str] = &["pdflatex", "xelatex", "lualatex"];
+
+#[derive(serde::Serialize)]
+struct DetectedEngine {
+    engine: String,
+    /// What to actually invoke: a bare name when it is on PATH, otherwise an
+    /// absolute path.
+    path: String,
+    version: String,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InstallOutcome {
+    success: bool,
+    message: String,
+    log: String,
+}
+
+/// Places a TeX distribution commonly lands when it is not on PATH — notably
+/// right after installing, when the running process still has the old
+/// environment.
+fn tex_search_dirs() -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = Vec::new();
+
+    #[cfg(windows)]
+    {
+        if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+            dirs.push(
+                PathBuf::from(&local)
+                    .join("Programs")
+                    .join("MiKTeX")
+                    .join("miktex")
+                    .join("bin")
+                    .join("x64"),
+            );
+        }
+        for base in ["C:\\Program Files\\MiKTeX", "C:\\Program Files (x86)\\MiKTeX"] {
+            dirs.push(PathBuf::from(base).join("miktex").join("bin").join("x64"));
+        }
+        // TeX Live installs one directory per year.
+        if let Ok(entries) = fs::read_dir("C:\\texlive") {
+            for entry in entries.flatten() {
+                dirs.push(entry.path().join("bin").join("windows"));
+                dirs.push(entry.path().join("bin").join("win32"));
+            }
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        dirs.push(PathBuf::from("/Library/TeX/texbin"));
+        dirs.push(PathBuf::from("/usr/local/texlive/bin"));
+        dirs.push(PathBuf::from("/usr/local/bin"));
+        for base in ["/usr/local/texlive", "/opt/texlive"] {
+            if let Ok(entries) = fs::read_dir(base) {
+                for entry in entries.flatten() {
+                    if let Ok(inner) = fs::read_dir(entry.path().join("bin")) {
+                        for arch in inner.flatten() {
+                            dirs.push(arch.path());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    dirs
+}
+
+fn engine_file_name(engine: &str) -> String {
+    if cfg!(windows) {
+        format!("{}.exe", engine)
+    } else {
+        engine.to_string()
+    }
+}
+
+/// Returns the command to invoke for an engine, plus its version banner.
+fn resolve_engine(engine: &str) -> Option<(String, String)> {
+    let mut candidates: Vec<String> = vec![engine.to_string()];
+    for dir in tex_search_dirs() {
+        let candidate = dir.join(engine_file_name(engine));
+        if candidate.is_file() {
+            candidates.push(candidate.to_string_lossy().to_string());
+        }
+    }
+
+    for candidate in candidates {
+        if let Ok((0, output)) = run_tool(
+            &candidate,
+            &["--version".to_string()],
+            &std::env::temp_dir(),
+            &[],
+        ) {
+            let version = output.lines().next().unwrap_or(engine).trim().to_string();
+            return Some((candidate, version));
+        }
+    }
+    None
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CompileOutcome {
+    success: bool,
+    message: String,
+    log: String,
+    /// The finished PDF, base64 encoded, so the webview can show it without
+    /// needing filesystem access to the build directory.
+    pdf_base64: Option<String>,
+}
+
+fn run_tool(
+    program: &str,
+    args: &[String],
+    cwd: &Path,
+    extra_env: &[(&str, String)],
+) -> Result<(i32, String), String> {
+    let mut command = Command::new(program);
+    command.args(args).current_dir(cwd);
+    for (key, value) in extra_env {
+        command.env(key, value);
+    }
+
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+
+    let output = command
+        .output()
+        .map_err(|e| format!("Could not run {}: {}", program, e))?;
+
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok((output.status.code().unwrap_or(-1), combined))
+}
+
+#[tauri::command]
+fn zl_detect_engines() -> Vec<DetectedEngine> {
+    TEX_ENGINES
+        .iter()
+        .filter_map(|engine| {
+            let (path, version) = resolve_engine(engine)?;
+            Some(DetectedEngine {
+                engine: engine.to_string(),
+                path,
+                version,
+            })
+        })
+        .collect()
+}
+
+/// Pulls the first real error out of a LaTeX log.
+fn first_tex_error(log: &str) -> Option<String> {
+    log.lines()
+        .find(|line| line.starts_with('!'))
+        .map(|line| line.trim_start_matches('!').trim().to_string())
+}
+
+#[tauri::command]
+fn zl_compile_project(
+    project_id: String,
+    engine: String,
+    main_file: String,
+) -> Result<CompileOutcome, String> {
+    if !TEX_ENGINES.contains(&engine.as_str()) {
+        return Err(format!("Unknown TeX engine: {}", engine));
+    }
+    // Resolved rather than taken on faith: right after installing MiKTeX the
+    // running process still has the old PATH, so the engine is only reachable
+    // by its absolute path.
+    let (program, _) = resolve_engine(&engine).ok_or_else(|| {
+        format!(
+            "{} is not installed. Install a TeX distribution to compile PDFs locally.",
+            engine
+        )
+    })?;
+
+    let project = project_dir(&project_id)?;
+    if !project.is_dir() {
+        return Err("This project has no local files yet.".to_string());
+    }
+    // Guards against a crafted file name reaching the command line.
+    let source = safe_join(&project, &main_file)?;
+    if !source.is_file() {
+        return Err(format!("{} does not exist in this project.", main_file));
+    }
+
+    let out_dir = build_dir(&project_id)?;
+    fs::create_dir_all(&out_dir)
+        .map_err(|e| format!("Cannot create {}: {}", out_dir.display(), e))?;
+
+    let job = source
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "document".to_string());
+
+    // Running from the project directory is what lets \input, .bib files, class
+    // files and images resolve; only the outputs are redirected.
+    let tex_args = |file: &str| {
+        vec![
+            "-interaction=nonstopmode".to_string(),
+            "-file-line-error".to_string(),
+            format!("-output-directory={}", out_dir.to_string_lossy()),
+            file.to_string(),
+        ]
+    };
+
+    let relative_source = main_file.replace('\\', "/");
+    let mut log = String::new();
+    let mut bibtex_log = String::new();
+
+    let (_, first_pass) = run_tool(&program, &tex_args(&relative_source), &project, &[])?;
+    log.push_str(&first_pass);
+
+    // Bibliographies need bibtex between passes, and .bib files live in the
+    // project directory rather than next to the .aux file.
+    let source_text = fs::read(&source)
+        .map(|bytes| String::from_utf8_lossy(&bytes).to_string())
+        .unwrap_or_default();
+    let wants_bibtex =
+        source_text.contains("\\bibliography{") || source_text.contains("\\addbibresource{");
+
+    if wants_bibtex {
+        // bibtex ships beside the engine, so follow it rather than hoping PATH
+        // has been refreshed.
+        let bibtex = Path::new(&program)
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .map(|dir| dir.join(engine_file_name("bibtex")).to_string_lossy().to_string())
+            .unwrap_or_else(|| "bibtex".to_string());
+
+        let bib_inputs = format!("{}{}", project.to_string_lossy(), if cfg!(windows) { ";" } else { ":" });
+        if let Ok((_, bib_log)) = run_tool(
+            &bibtex,
+            &[job.clone()],
+            &out_dir,
+            &[("BIBINPUTS", bib_inputs.clone()), ("BSTINPUTS", bib_inputs)],
+        ) {
+            bibtex_log = bib_log;
+        }
+    }
+
+    // Cross-references and the table of contents settle on a later pass. Only
+    // the last pass is kept: the earlier ones repeat the same output, and it is
+    // the final one that reflects the PDF actually produced.
+    let extra_passes = if wants_bibtex { 2 } else { usize::from(log.contains("Rerun")) };
+    for _ in 0..extra_passes {
+        let (_, pass) = run_tool(&program, &tex_args(&relative_source), &project, &[])?;
+        log = pass;
+    }
+
+    // Appended after the loop so a bibtex failure is not overwritten by it —
+    // that is exactly the case where the user needs to see why.
+    if !bibtex_log.trim().is_empty() {
+        log.push_str("\n--- bibtex ---\n");
+        log.push_str(&bibtex_log);
+    }
+
+    let pdf_path = out_dir.join(format!("{}.pdf", job));
+    if pdf_path.is_file() {
+        let bytes = fs::read(&pdf_path)
+            .map_err(|e| format!("Cannot read {}: {}", pdf_path.display(), e))?;
+        return Ok(CompileOutcome {
+            success: true,
+            message: format!("Compiled {} with {}.", main_file, engine),
+            log,
+            pdf_base64: Some(base64_encode(&bytes)),
+        });
+    }
+
+    let message = first_tex_error(&log)
+        .map(|err| format!("{} failed: {}", engine, err))
+        .unwrap_or_else(|| format!("{} produced no PDF. See the log below.", engine));
+
+    Ok(CompileOutcome {
+        success: false,
+        message,
+        log,
+        pdf_base64: None,
+    })
+}
+
+/// Installs a TeX distribution so the user can produce real PDFs offline.
+///
+/// Deliberately user-initiated: this downloads and installs system software,
+/// so nothing here runs unless the user asks for it.
+#[tauri::command]
+fn zl_install_tex() -> Result<InstallOutcome, String> {
+    if resolve_engine("pdflatex").is_some() {
+        return Ok(InstallOutcome {
+            success: true,
+            message: "A LaTeX engine is already installed.".to_string(),
+            log: String::new(),
+        });
+    }
+
+    #[cfg(windows)]
+    {
+        let mut log = String::new();
+
+        // --scope user keeps this out of Program Files, so no admin prompt.
+        let (code, out) = run_tool(
+            "winget",
+            &[
+                "install".to_string(),
+                "--id".to_string(),
+                "MiKTeX.MiKTeX".to_string(),
+                "--scope".to_string(),
+                "user".to_string(),
+                "--silent".to_string(),
+                "--accept-package-agreements".to_string(),
+                "--accept-source-agreements".to_string(),
+                "--disable-interactivity".to_string(),
+            ],
+            &std::env::temp_dir(),
+            &[],
+        )
+        .map_err(|e| {
+            format!(
+                "{}\n\nInstall MiKTeX manually from https://miktex.org/download",
+                e
+            )
+        })?;
+        log.push_str(&out);
+
+        if code != 0 && resolve_engine("pdflatex").is_none() {
+            return Ok(InstallOutcome {
+                success: false,
+                message: "MiKTeX installation failed. You can install it manually from https://miktex.org/download".to_string(),
+                log,
+            });
+        }
+
+        // Without these two steps the first real document fails: MiKTeX Basic
+        // ships no scalable T1 fonts, and it would otherwise pop up a dialog
+        // asking permission for every package it needs.
+        if let Some((pdflatex, _)) = resolve_engine("pdflatex") {
+            let bin = Path::new(&pdflatex).parent().map(|p| p.to_path_buf());
+            if let Some(bin) = bin {
+                let initexmf = bin.join(engine_file_name("initexmf"));
+                let mpm = bin.join(engine_file_name("mpm"));
+
+                if let Ok((_, out)) = run_tool(
+                    &initexmf.to_string_lossy(),
+                    &["--set-config-value".to_string(), "[MPM]AutoInstall=1".to_string()],
+                    &std::env::temp_dir(),
+                    &[],
+                ) {
+                    log.push_str("\n--- enable automatic package installation ---\n");
+                    log.push_str(&out);
+                }
+
+                if let Ok((_, out)) = run_tool(
+                    &mpm.to_string_lossy(),
+                    &["--install=cm-super".to_string()],
+                    &std::env::temp_dir(),
+                    &[],
+                ) {
+                    log.push_str("\n--- scalable Computer Modern fonts ---\n");
+                    log.push_str(&out);
+                }
+            }
+        }
+
+        return match resolve_engine("pdflatex") {
+            Some((_, version)) => Ok(InstallOutcome {
+                success: true,
+                message: format!("LaTeX installed: {}", version),
+                log,
+            }),
+            None => Ok(InstallOutcome {
+                success: false,
+                message: "MiKTeX was installed but pdflatex could not be found. Restart ZabbLeaf and try again.".to_string(),
+                log,
+            }),
+        };
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let (code, out) = run_tool(
+            "brew",
+            &["install".to_string(), "--cask".to_string(), "basictex".to_string()],
+            &std::env::temp_dir(),
+            &[],
+        )
+        .map_err(|_| {
+            "Homebrew is not available. Install BasicTeX from https://tug.org/mactex/morepackages.html"
+                .to_string()
+        })?;
+        return Ok(InstallOutcome {
+            success: code == 0,
+            message: if code == 0 {
+                "BasicTeX installed. Restart ZabbLeaf so it picks up the new PATH.".to_string()
+            } else {
+                "Installation failed. Install BasicTeX from https://tug.org/mactex/morepackages.html".to_string()
+            },
+            log: out,
+        });
+    }
+
+    // Linux package managers need root, which an app should not try to obtain
+    // on the user's behalf.
+    #[cfg(all(not(windows), not(target_os = "macos")))]
+    {
+        Ok(InstallOutcome {
+            success: false,
+            message: "Install TeX Live with your package manager, then restart ZabbLeaf."
+                .to_string(),
+            log: "Debian/Ubuntu:  sudo apt install texlive-latex-recommended texlive-fonts-recommended\n\
+                  Fedora:         sudo dnf install texlive-scheme-basic\n\
+                  Arch:           sudo pacman -S texlive-basic"
+                .to_string(),
+        })
+    }
+}
+
+fn base64_encode(bytes: &[u8]) -> String {
+    use base64::Engine as _;
+    base64::engine::general_purpose::STANDARD.encode(bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -677,6 +1118,25 @@ mod tests {
     }
 
     #[test]
+    fn build_output_stays_out_of_the_cloned_repository() {
+        // Otherwise `git add -A` during a sync would push .aux/.log/.pdf files
+        // to the user's Overleaf project.
+        let project = project_dir("abc").unwrap();
+        let build = build_dir("abc").unwrap();
+        assert!(!build.starts_with(&project));
+    }
+
+    #[test]
+    fn tex_errors_are_pulled_out_of_the_log() {
+        let log = "This is pdfTeX\n(./main.tex\n! Undefined control sequence.\nl.11 \\name\n";
+        assert_eq!(
+            first_tex_error(log).unwrap(),
+            "Undefined control sequence."
+        );
+        assert!(first_tex_error("no errors here").is_none());
+    }
+
+    #[test]
     fn only_text_sources_are_offered_to_the_editor() {
         assert!(is_text_file(Path::new("main.tex")));
         assert!(is_text_file(Path::new("refs.BIB")));
@@ -695,7 +1155,10 @@ fn main() {
             zl_sync_project,
             zl_read_project_files,
             zl_write_project_file,
-            zl_delete_project
+            zl_delete_project,
+            zl_detect_engines,
+            zl_compile_project,
+            zl_install_tex
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -37,7 +37,7 @@
     },
     "bundle": {
       "active": true,
-      "targets": "all",
+      "targets": ["nsis", "dmg", "appimage"],
       "identifier": "com.zabbleaf.desktop",
       "icon": [
         "icons/32x32.png",

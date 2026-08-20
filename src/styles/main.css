@@ -385,6 +385,10 @@ body {
   to { transform: rotate(360deg); }
 }
 
+.spin {
+  animation: spin 1s linear infinite;
+}
+
 /* Project List Home Screen */
 .project-list-container {
   flex: 1;

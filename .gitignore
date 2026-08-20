@@ -10,6 +10,9 @@ build
 # Tauri build outputs
 src-tauri/target
 
+# Renamed installers staged by the release workflow
+release
+
 # Local Environment & Secrets
 .env
 .env.local

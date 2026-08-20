@@ -66,8 +66,19 @@ export class LaTeXCompilerService {
   }
 
   private parseLatex(tex: string): ParsedDocument {
-    const title = tex.match(/\\title\{([^}]+)\}/)?.[1] || 'Untitled';
-    const author = tex.match(/\\author\{([^}]+)\}/)?.[1] || '';
+    // \title{} is an article-class idiom. Letters and CVs (moderncv, scrlttr2)
+    // name themselves with \name{First}{Last}, so fall back to that before
+    // giving up and calling the document "Untitled".
+    const nameMatch = tex.match(/\\name\{([^}]*)\}\s*\{([^}]*)\}/);
+    const title =
+      tex.match(/\\title\{([^}]+)\}/)?.[1] ||
+      (nameMatch ? `${nameMatch[1]} ${nameMatch[2]}`.trim() : '') ||
+      'Untitled';
+
+    const author =
+      tex.match(/\\author\{([^}]+)\}/)?.[1] ||
+      tex.match(/\\email\{([^}]+)\}/)?.[1] ||
+      '';
     const date = tex.match(/\\date\{([^}]+)\}/)?.[1] || new Date().toLocaleDateString();
     const abstractMatch = tex.match(/\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/);
     const abstract = abstractMatch ? abstractMatch[1].trim() : '';
@@ -105,28 +116,71 @@ export class LaTeXCompilerService {
       equations.push(match[1] || match[2] || '');
     }
 
-    return { title, author, date, abstract, sections, equations };
+    // Documents without \section — letters, CVs, anything using a class this
+    // parser does not know — would otherwise render as a blank page. Showing
+    // the body text is far more useful than showing nothing.
+    let body = '';
+    if (sections.length === 0) {
+      const bodyMatch = tex.match(/\\begin\{document\}([\s\S]*?)(?:\\end\{document\}|$)/);
+      if (bodyMatch) {
+        // \closing sits in the letter's preamble but prints at the bottom, so
+        // reading the source top to bottom would put "Yours sincerely" first.
+        let source = bodyMatch[1];
+        const closing = source.match(/\\closing\{([\s\S]*?)\}/)?.[1] ?? '';
+        source = source.replace(/\\closing\{[\s\S]*?\}/, '');
+        body = this.cleanLatex(source);
+        if (closing) body += `\n\n${this.cleanLatex(closing)}`;
+      }
+    }
+
+    return { title, author, date, abstract, sections, equations, body };
   }
 
   private cleanLatex(text: string): string {
     return text
+      // Comments first, so a % does not swallow markup we still need.
+      .replace(/(^|[^\\])%.*$/gm, '$1')
       .replace(/\\textbf\{([^}]+)\}/g, '$1')
       .replace(/\\textit\{([^}]+)\}/g, '$1')
       .replace(/\\emph\{([^}]+)\}/g, '$1')
       .replace(/\\cite\{([^}]+)\}/g, '[$1]')
       .replace(/\\ref\{([^}]+)\}/g, '[ref:$1]')
       .replace(/\\label\{[^}]+\}/g, '')
-      .replace(/\\begin\{itemize\}/g, '')
-      .replace(/\\end\{itemize\}/g, '')
-      .replace(/\\begin\{enumerate\}/g, '')
-      .replace(/\\end\{enumerate\}/g, '')
+      // Letter and CV structure (moderncv, scrlttr2).
+      .replace(/\\recipient\{([^}]*)\}\s*\{([\s\S]*?)\}/g, '$1\n$2')
+      .replace(/\\(opening|closing|signature)\{([\s\S]*?)\}/g, '$2')
+      .replace(/\\cventry\{[^}]*\}\{([^}]*)\}\{([^}]*)\}\{[^}]*\}\{[^}]*\}\{([\s\S]*?)\}/g, '$1 — $2\n$3')
+      .replace(/\\cvitem\{([^}]*)\}\{([\s\S]*?)\}/g, '$1: $2')
+      // Commands that produce no readable text of their own.
+      .replace(/\\(makelettertitle|makecvtitle|maketitle|clearpage|newpage|noindent|centering|bigskip|medskip|smallskip|hfill)\b/g, '')
+      .replace(/\\(vspace|hspace)\*?\{[^}]*\}/g, '')
+      .replace(/\\begin\{(itemize|enumerate|center|flushleft|flushright)\}/g, '')
+      .replace(/\\end\{(itemize|enumerate|center|flushleft|flushright)\}/g, '')
       .replace(/\\item\s*/g, '• ')
       .replace(/\\\\/g, '\n')
-      .replace(/\\[a-zA-Z]+\{([^}]*)\}/g, '$1')
+      // Accents and special letters, so names survive readably.
+      .replace(/\\'\{?([aeiouyAEIOUY])\}?/g, (_, c) => this.accent(c, '́'))
+      .replace(/\\`\{?([aeiouAEIOU])\}?/g, (_, c) => this.accent(c, '̀'))
+      .replace(/\\\^\{?([aeiouAEIOU])\}?/g, (_, c) => this.accent(c, '̂'))
+      .replace(/\\"\{?([aeiouAEIOU])\}?/g, (_, c) => this.accent(c, '̈'))
+      .replace(/\\~\{?([anoANO])\}?/g, (_, c) => this.accent(c, '̃'))
+      .replace(/\\c\{c\}/g, 'ç')
+      .replace(/\\O\{?\}?/g, 'Ø')
+      .replace(/\\o\{?\}?/g, 'ø')
+      .replace(/\\ss\b/g, 'ß')
+      .replace(/\\&/g, '&')
+      .replace(/--/g, '–')
+      // Anything still unrecognised: keep the argument, drop the command.
+      .replace(/\\[a-zA-Z]+\*?\{([^}]*)\}/g, '$1')
       .replace(/\\[a-zA-Z]+/g, '')
       .replace(/[{}]/g, '')
+      .replace(/[ \t]{2,}/g, ' ')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
+  }
+
+  private accent(letter: string, combining: string): string {
+    return (letter + combining).normalize('NFC');
   }
 
   private generatePdfHtml(doc: ParsedDocument): string {
@@ -163,6 +217,19 @@ export class LaTeXCompilerService {
       ? doc.equations.map(eq => `<div class="equation">${eq.trim()}</div>`).join('')
       : '';
 
+    const bodyHtml = doc.body
+      ? doc.body
+          .split('\n')
+          .filter(line => line.trim())
+          .map(line =>
+            line.trim().startsWith('• ')
+              ? `<li>${escapeHtml(line.trim().substring(2))}</li>`
+              : `<p>${escapeHtml(line)}</p>`
+          )
+          .join('')
+          .replace(/(<li>.*?<\/li>)+/g, '<ul>$&</ul>')
+      : '';
+
     return `<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
@@ -186,10 +253,18 @@ export class LaTeXCompilerService {
 <div class="date">${doc.date}</div>
 ${abstractHtml}
 ${sectionsHtml}
+${bodyHtml}
 ${equationsHtml}
-<div class="footer">Compiled by ZabbLeaf Desktop IDE</div>
+<div class="footer">Rough text preview — ZabbLeaf. Install MiKTeX or TeX Live and pick a local engine for a real PDF.</div>
 </body></html>`;
   }
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 interface ParsedDocument {
@@ -199,6 +274,8 @@ interface ParsedDocument {
   abstract: string;
   sections: { level: number; title: string; content: string }[];
   equations: string[];
+  /** Populated only when the document has no \section to structure it. */
+  body: string;
 }
 
 export const latexCompiler = new LaTeXCompilerService();

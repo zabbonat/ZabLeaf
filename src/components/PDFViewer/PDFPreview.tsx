@@ -5,12 +5,15 @@ interface PDFPreviewProps {
   compiledUrl: string | null;
   compileLog: string;
   isCompiling: boolean;
+  /** A real engine produced a PDF; the quick preview only produces HTML. */
+  isPdf?: boolean;
 }
 
 export const PDFPreview: React.FC<PDFPreviewProps> = ({
   compiledUrl,
   compileLog,
-  isCompiling
+  isCompiling,
+  isPdf = false
 }) => {
   const [zoom, setZoom] = useState(100);
 
@@ -20,7 +23,8 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({
     if (compiledUrl) {
       const a = document.createElement('a');
       a.href = compiledUrl;
-      a.download = 'zabbleaf-preview.html';
+      // A real engine produces a PDF; the quick preview is only HTML.
+      a.download = isPdf ? 'zabbleaf.pdf' : 'zabbleaf-preview.html';
       a.click();
     }
   };
