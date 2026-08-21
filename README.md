@@ -111,14 +111,15 @@ To do it yourself instead:
 - **macOS** — `brew install --cask basictex`, or [BasicTeX](https://tug.org/mactex/morepackages.html).
 - **Linux** — `sudo apt install texlive-latex-recommended texlive-fonts-recommended` (or your distribution's equivalent).
 
-If you install MiKTeX by hand, two settings save trouble later. ZabbLeaf and the script apply them for you:
+If you install MiKTeX by hand, install the scalable fonts too:
 
 ```powershell
-initexmf --set-config-value "[MPM]AutoInstall=1"   # fetch missing packages without a dialog per package
-mpm --install=cm-super                             # scalable fonts, needed by \usepackage[T1]{fontenc}
+mpm --install=cm-super
 ```
 
-Without the first, a compile started from inside the app waits forever on a dialog nobody can see. Without the second, any document using `\usepackage[T1]{fontenc}` fails with *"auto expansion is only possible with scalable fonts"*.
+Without them, any document using `\usepackage[T1]{fontenc}` fails with *"auto expansion is only possible with scalable fonts"*. ZabbLeaf and the script do this for you.
+
+Other missing packages are fetched by MiKTeX the first time a document needs them, which is why the first compile of a new document can take a few extra seconds.
 
 ---
 

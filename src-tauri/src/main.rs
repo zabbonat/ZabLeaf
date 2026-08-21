@@ -775,6 +775,26 @@ fn zl_detect_engines() -> Vec<DetectedEngine> {
         .collect()
 }
 
+/// Builds the engine command line.
+///
+/// `-enable-installer` is what actually stops MiKTeX from opening a dialog for
+/// every missing package: setting `[MPM]AutoInstall=1` does not, because 1 is
+/// already the default and still means "ask". The flag is MiKTeX-only, and
+/// TeX Live would reject the unknown option, so it is added only when the
+/// engine's own version banner says MiKTeX.
+fn tex_arguments(out_dir: &Path, file: &str, is_miktex: bool) -> Vec<String> {
+    let mut args = vec![
+        "-interaction=nonstopmode".to_string(),
+        "-file-line-error".to_string(),
+    ];
+    if is_miktex {
+        args.push("-enable-installer".to_string());
+    }
+    args.push(format!("-output-directory={}", out_dir.to_string_lossy()));
+    args.push(file.to_string());
+    args
+}
+
 /// Pulls the first real error out of a LaTeX log.
 fn first_tex_error(log: &str) -> Option<String> {
     log.lines()
@@ -794,12 +814,13 @@ fn zl_compile_project(
     // Resolved rather than taken on faith: right after installing MiKTeX the
     // running process still has the old PATH, so the engine is only reachable
     // by its absolute path.
-    let (program, _) = resolve_engine(&engine).ok_or_else(|| {
+    let (program, version) = resolve_engine(&engine).ok_or_else(|| {
         format!(
             "{} is not installed. Install a TeX distribution to compile PDFs locally.",
             engine
         )
     })?;
+    let is_miktex = version.to_lowercase().contains("miktex");
 
     let project = project_dir(&project_id)?;
     if !project.is_dir() {
@@ -822,14 +843,7 @@ fn zl_compile_project(
 
     // Running from the project directory is what lets \input, .bib files, class
     // files and images resolve; only the outputs are redirected.
-    let tex_args = |file: &str| {
-        vec![
-            "-interaction=nonstopmode".to_string(),
-            "-file-line-error".to_string(),
-            format!("-output-directory={}", out_dir.to_string_lossy()),
-            file.to_string(),
-        ]
-    };
+    let tex_args = |file: &str| tex_arguments(&out_dir, file, is_miktex);
 
     let relative_source = main_file.replace('\\', "/");
     let mut log = String::new();
@@ -978,10 +992,10 @@ Install MiKTeX manually from https://miktex.org/download", e))?;
     }
 }
 
-/// Without these two steps the first real document fails: MiKTeX Basic ships no
-/// scalable T1 fonts, and it would otherwise open a dialog asking permission for
-/// every package it needs — a dialog nobody can answer, because ZabbLeaf runs
-/// these tools with no console attached.
+/// MiKTeX Basic ships no scalable T1 fonts, so the first real document fails
+/// with "auto expansion is only possible with scalable fonts" until cm-super is
+/// there. Missing packages are handled at compile time instead, by passing
+/// -enable-installer to the engine.
 #[cfg(windows)]
 fn configure_miktex(log: &mut String) {
     let Some((pdflatex, _)) = resolve_engine("pdflatex") else {
@@ -990,21 +1004,6 @@ fn configure_miktex(log: &mut String) {
     let Some(bin) = Path::new(&pdflatex).parent().map(|p| p.to_path_buf()) else {
         return;
     };
-
-    if let Ok((_, out)) = run_tool(
-        &bin.join(engine_file_name("initexmf")).to_string_lossy(),
-        &[
-            "--set-config-value".to_string(),
-            "[MPM]AutoInstall=1".to_string(),
-        ],
-        &std::env::temp_dir(),
-        &[],
-    ) {
-        log.push_str("
---- enable automatic package installation ---
-");
-        log.push_str(&out);
-    }
 
     if let Ok((_, out)) = run_tool(
         &bin.join(engine_file_name("mpm")).to_string_lossy(),
@@ -1206,6 +1205,22 @@ mod tests {
         let project = project_dir("abc").unwrap();
         let build = build_dir("abc").unwrap();
         assert!(!build.starts_with(&project));
+    }
+
+    #[test]
+    fn the_installer_flag_is_only_passed_to_miktex() {
+        let out = Path::new("/build");
+        let miktex = tex_arguments(out, "main.tex", true);
+        assert!(miktex.contains(&"-enable-installer".to_string()));
+
+        // TeX Live rejects unknown options, which would break every compile on
+        // the machines that use it.
+        let texlive = tex_arguments(out, "main.tex", false);
+        assert!(!texlive.contains(&"-enable-installer".to_string()));
+
+        // The file always comes last, whichever engine it is.
+        assert_eq!(miktex.last().unwrap(), "main.tex");
+        assert_eq!(texlive.last().unwrap(), "main.tex");
     }
 
     #[test]

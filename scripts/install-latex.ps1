@@ -7,12 +7,9 @@
     preview needs nothing installed. A local engine is only needed to build real
     PDFs offline, so it is a separate, optional step.
 
-    This installs MiKTeX Basic (~142 MB) and applies the two settings a fresh
-    MiKTeX needs before it can compile a typical document:
+    This installs MiKTeX Basic (~142 MB) plus the one package a fresh MiKTeX is
+    missing before it can compile a typical document:
 
-      * AutoInstall=1  - fetch missing packages (moderncv, geometry, ...) without
-                         popping up a dialog for each one, which would hang a
-                         compile started from inside the app.
       * cm-super       - scalable Type1 Computer Modern fonts. Without them any
                          document using \usepackage[T1]{fontenc} fails with
                          "auto expansion is only possible with scalable fonts".
@@ -70,9 +67,6 @@ if (-not $pdflatex) {
 }
 
 $bin = Split-Path $pdflatex -Parent
-Write-Host "Enabling automatic package installation..." -ForegroundColor Cyan
-& "$bin\initexmf.exe" --set-config-value "[MPM]AutoInstall=1" | Out-Null
-
 Write-Host "Installing scalable Computer Modern fonts (cm-super)..." -ForegroundColor Cyan
 & "$bin\mpm.exe" --install=cm-super | Out-Null
 & "$bin\initexmf.exe" --update-fndb | Out-Null
