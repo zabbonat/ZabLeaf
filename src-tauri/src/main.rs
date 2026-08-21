@@ -252,7 +252,12 @@ fn friendly_error(stderr: &str, stdout: &str) -> String {
                 this Overleaf account can open the project."
             .to_string();
     }
-    if lower.contains("repository not found") || lower.contains("404") {
+    // git phrases this as "repository '<url>' not found", so the words are not
+    // adjacent — match them separately.
+    if (lower.contains("repository") && lower.contains("not found"))
+        || lower.contains("project does not exist")
+        || lower.contains("404")
+    {
         return "Project not found. Check the project URL and that this Overleaf \
                 account has access to it."
             .to_string();
@@ -397,7 +402,13 @@ fn zl_sync_project(
 ) -> Result<GitOutcome, String> {
     let dir = project_dir(&project_id)?;
     if !dir.join(".git").is_dir() {
-        return Err("This project has not been downloaded yet.".to_string());
+        // Either a project created locally (never linked to Overleaf) or one
+        // whose local copy went missing. Both are recoverable, so say what is
+        // actually wrong rather than blaming a download.
+        return Err(
+            "This project is not linked to an Overleaf project, so there is nothing to sync with."
+                .to_string(),
+        );
     }
 
     let clean = clean_url(&git_url)?;
@@ -1095,6 +1106,16 @@ mod tests {
         assert!(msg.contains("Generate a fresh Git token"));
         assert!(friendly_error("remote: Repository not found", "").contains("Project not found"));
         assert!(friendly_error("fatal: remote error: no git access", "").contains("No Git access"));
+        // git puts the URL between the two words.
+        assert!(friendly_error(
+            "fatal: repository 'https://git.overleaf.com/abc/' not found",
+            ""
+        )
+        .contains("Project not found"));
+        assert!(
+            friendly_error("remote: This Overleaf project does not exist.", "")
+                .contains("Project not found")
+        );
     }
 
     #[test]

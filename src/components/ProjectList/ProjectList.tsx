@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FolderGit2, Cloud, CloudOff, HardDrive, Clock, Search, Plus, Download, ArrowRight, RefreshCw, LogIn, Trash2 } from 'lucide-react';
 import { OverleafProject, overleafApi } from '../../services/overleafApi';
-import { extractProjectId } from '../../services/gitSync';
+import { extractProjectId, isValidProjectId } from '../../services/gitSync';
 
 interface ProjectListProps {
   isLoggedIn: boolean;
@@ -41,7 +41,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     if (!url) return;
 
     const id = extractProjectId(url);
-    if (id.length < 6) {
+    if (!isValidProjectId(id)) {
       alert('That does not look like an Overleaf project URL.\n\nExpected something like:\nhttps://www.overleaf.com/project/6a6a84fe7cba2c6cd0ff9f3e');
       return;
     }

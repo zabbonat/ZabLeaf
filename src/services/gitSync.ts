@@ -214,4 +214,13 @@ export function extractProjectId(input: string): string {
   return withoutQuery.split('/').filter(Boolean).pop() || '';
 }
 
+/**
+ * Overleaf project ids are 24 hex characters. Checking the shape keeps typos
+ * and stray text from becoming a doomed clone against git.overleaf.com — the
+ * length is left loose in case Overleaf ever widens the format.
+ */
+export function isValidProjectId(id: string): boolean {
+  return /^[A-Za-z0-9_-]{16,}$/.test(id);
+}
+
 export const gitSyncEngine = new GitSyncService();

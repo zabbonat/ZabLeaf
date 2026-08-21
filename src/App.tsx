@@ -13,7 +13,7 @@ import { latexCompiler } from './services/latexCompiler';
 import { overleafCompiler } from './services/overleafCompiler';
 import { localTeXCompiler, TeXEngine, DetectedEngine } from './services/localTeXCompiler';
 import { versionHistory, VersionSnapshot } from './services/versionHistory';
-import { gitSyncEngine } from './services/gitSync';
+import { gitSyncEngine, extractProjectId, isValidProjectId } from './services/gitSync';
 import './styles/main.css';
 
 type AppView = 'home' | 'editor';
@@ -184,9 +184,15 @@ export const App: React.FC = () => {
     setSnapshots(versionHistory.getProjectHistory(projectId));
   }, [projectId]);
 
+  // Without clearing the previous timer, an earlier notification's timeout wipes
+  // a newer message off the screen part-way through — which is how a failed sync
+  // right after another action ends up showing nothing at all.
+  const notificationTimer = useRef<number | undefined>(undefined);
+
   const showNotification = (msg: string) => {
     setNotification(msg);
-    setTimeout(() => setNotification(null), 4500);
+    window.clearTimeout(notificationTimer.current);
+    notificationTimer.current = window.setTimeout(() => setNotification(null), 4500);
   };
 
   // Editing fires on every keystroke; writing through to disk that often would
@@ -272,8 +278,128 @@ export const App: React.FC = () => {
     }
   }, [activeFile, currentProject, files, projectId, selectedCompiler]);
 
+  /**
+   * Attaches a locally-created project to an existing Overleaf project.
+   *
+   * Overleaf's Git interface cannot create projects — it only accepts pushes to
+   * ones that already exist — so the user makes an empty project on overleaf.com
+   * and we clone it, move the local files in, and carry on as a normal project.
+   */
+  const handleLinkToOverleaf = async (localProject: OverleafProject): Promise<string | null> => {
+    if (!gitSyncEngine.getCredentials()?.gitToken) {
+      setPendingProject(localProject);
+      setIsAuthOpen(true);
+      showNotification('🔑 Connect your Overleaf account first.');
+      return null;
+    }
+
+    const url = window.prompt(
+      'Paste the URL of the Overleaf project to link this to.\n\n' +
+      'Create it on overleaf.com first (New Project → Blank Project) — Overleaf\'s Git ' +
+      'interface cannot create projects, only sync with existing ones.'
+    );
+    if (!url) return null;
+
+    const remoteId = extractProjectId(url);
+    if (!isValidProjectId(remoteId)) {
+      showNotification('❌ That does not look like an Overleaf project URL.');
+      return null;
+    }
+
+    setIsSyncing(true);
+    setNotification('⬇️ Linking to Overleaf...');
+
+    // Remember whether this copy already existed: rolling back must not delete
+    // a project the user had downloaded before, along with any local edits.
+    const alreadyHadCopy = await gitSyncEngine.hasProject(remoteId);
+    const cloned = await gitSyncEngine.cloneProject(remoteId);
+    if (!cloned.success) {
+      setIsSyncing(false);
+      showNotification(`❌ ${cloned.message}`);
+      return null;
+    }
+
+    // A blank Overleaf project still ships its own main.tex. Never silently
+    // destroy remote content the user may care about.
+    const remoteFiles = await gitSyncEngine.readProjectFiles(remoteId);
+    const clashes = remoteFiles.filter(remote => {
+      const local = files.find(f => f.name === remote.name);
+      return local && (local.content || '') !== remote.content;
+    });
+
+    if (clashes.length > 0) {
+      const proceed = window.confirm(
+        `The Overleaf project already contains:\n\n  ${clashes.map(c => c.name).join('\n  ')}\n\n` +
+        `Linking replaces ${clashes.length === 1 ? 'it' : 'them'} with your local version. Continue?`
+      );
+      if (!proceed) {
+        if (!alreadyHadCopy) await gitSyncEngine.deleteProject(remoteId);
+        setIsSyncing(false);
+        showNotification('Linking cancelled — nothing was changed.');
+        return null;
+      }
+    }
+
+    for (const f of files) {
+      await gitSyncEngine.writeFile(remoteId, f.name, f.content || '');
+    }
+
+    // The project takes on the Overleaf id from here on; the old local entry
+    // would otherwise linger in the list as a duplicate.
+    const linked: OverleafProject = {
+      ...localProject,
+      id: remoteId,
+      isLocal: true,
+      syncStatus: 'local-changes',
+      lastUpdated: new Date().toISOString()
+    };
+    overleafApi.removeProject(localProject.id);
+    overleafApi.addProject(linked);
+    setCurrentProject(linked);
+
+    setIsSyncing(false);
+    showNotification('🔗 Linked to Overleaf. Syncing...');
+    return remoteId;
+  };
+
   const handleSync = async () => {
     if (!currentProject) return;
+
+    // Linking changes which project we are syncing, and setCurrentProject only
+    // takes effect on the next render — so track the id explicitly.
+    let syncId = currentProject.id;
+
+    // A project with no git repository has no Overleaf counterpart yet: either
+    // it was created locally, or its local copy was removed.
+    if (!(await gitSyncEngine.hasProject(syncId))) {
+      if (syncId.startsWith('local-')) {
+        const wantsLink = window.confirm(
+          `"${currentProject.name}" only exists on this computer — it is not linked to any Overleaf project yet.\n\n` +
+          `Link it to one now?`
+        );
+        if (!wantsLink) {
+          showNotification('ℹ️ This project is local only. Link it to an Overleaf project to sync.');
+          return;
+        }
+
+        const linkedId = await handleLinkToOverleaf(currentProject);
+        if (!linkedId) return;
+        syncId = linkedId;
+      } else {
+        const wantsClone = window.confirm(
+          `The local copy of "${currentProject.name}" is missing.\n\nDownload it from Overleaf again?`
+        );
+        if (!wantsClone) return;
+
+        setIsSyncing(true);
+        const res = await gitSyncEngine.cloneProject(syncId);
+        setIsSyncing(false);
+        if (!res.success) {
+          showNotification(`❌ ${res.message}`);
+          return;
+        }
+      }
+    }
 
     setIsSyncing(true);
     setNotification('🔄 Syncing with Overleaf...');
@@ -281,14 +407,14 @@ export const App: React.FC = () => {
     // Flush every edit to disk before git looks at the working tree.
     for (const f of files) {
       if (f.isModified) {
-        await gitSyncEngine.writeFile(currentProject.id, f.name, f.content || '');
+        await gitSyncEngine.writeFile(syncId, f.name, f.content || '');
       }
     }
 
-    const result = await gitSyncEngine.syncProject(currentProject.id);
+    const result = await gitSyncEngine.syncProject(syncId);
 
     // Reload from disk so a rebase that brought in remote edits is reflected.
-    const updatedFiles = await gitSyncEngine.readProjectFiles(currentProject.id);
+    const updatedFiles = await gitSyncEngine.readProjectFiles(syncId);
     if (updatedFiles.length > 0) {
       setFiles(updatedFiles.map(f => ({
         id: f.name,
@@ -303,7 +429,7 @@ export const App: React.FC = () => {
       }
     }
 
-    overleafApi.updateProject(currentProject.id, {
+    overleafApi.updateProject(syncId, {
       syncStatus: result.success ? 'synced' : 'local-changes',
       lastUpdated: new Date().toISOString()
     });
