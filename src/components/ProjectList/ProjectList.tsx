@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FolderGit2, Cloud, CloudOff, HardDrive, Clock, Search, Plus, Download, ArrowRight, RefreshCw, LogIn, LogOut, Trash2 } from 'lucide-react';
-import { OverleafProject, overleafApi } from '../../services/overleafApi';
+import { FolderGit2, Cloud, CloudOff, HardDrive, Clock, Search, Plus, Download, ArrowRight, RefreshCw, LogIn, LogOut, Pencil, Trash2 } from 'lucide-react';
+import { OverleafProject, overleafApi, placeholderName } from '../../services/overleafApi';
 import { extractProjectId, isValidProjectId } from '../../services/gitSync';
 
 interface ProjectListProps {
@@ -59,7 +59,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
     const newProject: OverleafProject = {
       id,
-      name: `Project ${id.substring(0, 6)}…`,
+      name: placeholderName(id),
       lastUpdated: new Date().toISOString(),
       syncStatus: 'online-only',
       isLocal: false,
@@ -68,6 +68,18 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     overleafApi.addProject(newProject);
     setProjects([newProject, ...projects]);
     onOpenProject(newProject);
+  };
+
+  /** Overleaf never tells us the project name, so let the user set it. */
+  const renameProject = (project: OverleafProject) => {
+    const chosen = prompt('Rename this project:', project.name);
+    if (chosen === null) return;
+
+    const name = chosen.trim();
+    if (!name) return;
+
+    overleafApi.updateProject(project.id, { name });
+    setProjects(projects.map(p => (p.id === project.id ? { ...p, name } : p)));
   };
 
   const formatDate = (isoDate: string) => {
@@ -235,6 +247,17 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                     <Download size={14} /> Download Offline
                   </button>
                 )}
+                <button
+                  className="btn-secondary"
+                  style={{ padding: '6px', borderColor: 'transparent' }}
+                  title="Rename project"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    renameProject(project);
+                  }}
+                >
+                  <Pencil size={16} />
+                </button>
                 <button
                   className="btn-secondary"
                   style={{ padding: '6px', color: '#c97b7b', borderColor: 'transparent' }}

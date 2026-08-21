@@ -260,6 +260,45 @@ ${equationsHtml}
   }
 }
 
+/**
+ * Overleaf's Git interface hands over the files and nothing else — no project
+ * name, which lives only behind the web API and a session cookie. So infer a
+ * readable name from the document itself, falling back to nothing when the
+ * document gives no clue.
+ */
+export function deriveProjectName(files: { name: string; content: string }[]): string {
+  const main =
+    files.find(f => f.name.toLowerCase() === 'main.tex') ||
+    files.find(f => f.name.toLowerCase().endsWith('.tex'));
+  if (!main) return '';
+
+  const tidy = (raw: string) => {
+    const text = raw
+      .replace(/\\\\/g, ' ')
+      .replace(/\\[a-zA-Z]+\*?\{([^}]*)\}/g, '$1')
+      .replace(/\\[a-zA-Z]+/g, '')
+      .replace(/[{}$]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (text.length <= 60) return text;
+    // Cut on a word boundary: paper titles are long, and a name chopped
+    // mid-word reads like a bug.
+    const cut = text.slice(0, 60);
+    const lastSpace = cut.lastIndexOf(' ');
+    return `${(lastSpace > 30 ? cut.slice(0, lastSpace) : cut).trim()}…`;
+  };
+
+  const title = main.content.match(/\\title\{([^}]+)\}/)?.[1];
+  if (title) return tidy(title);
+
+  // Letters and CVs name themselves instead.
+  const person = main.content.match(/\\name\{([^}]*)\}\s*\{([^}]*)\}/);
+  if (person) return tidy(`${person[1]} ${person[2]}`);
+
+  return '';
+}
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')

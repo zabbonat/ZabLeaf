@@ -14,6 +14,16 @@ export interface OverleafProject {
 
 const LOCAL_PROJECTS_KEY = 'zabbleaf_local_projects';
 
+/** The stand-in name given to a project added from a URL, before anything better is known. */
+export function placeholderName(projectId: string): string {
+  return `Project ${projectId.substring(0, 6)}…`;
+}
+
+/** True while the name is still the generated one, i.e. safe to replace. */
+export function isPlaceholderName(name: string): boolean {
+  return /^Project [A-Za-z0-9]{1,8}…?\.{0,3}$/.test(name.trim());
+}
+
 export class OverleafApiService {
   private localProjects: OverleafProject[] = [];
 

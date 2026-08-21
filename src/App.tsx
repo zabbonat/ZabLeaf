@@ -8,8 +8,8 @@ import { ProjectList } from './components/ProjectList/ProjectList';
 import { LaTeXSetupBanner, LaTeXReadyNotice } from './components/LaTeXSetup/LaTeXSetupBanner';
 import { VersionHistory } from './components/VersionHistory/VersionHistory';
 import { overleafAuth } from './services/overleafAuth';
-import { OverleafProject, overleafApi } from './services/overleafApi';
-import { latexCompiler } from './services/latexCompiler';
+import { OverleafProject, overleafApi, isPlaceholderName } from './services/overleafApi';
+import { latexCompiler, deriveProjectName } from './services/latexCompiler';
 import { overleafCompiler } from './services/overleafCompiler';
 import { localTeXCompiler, TeXEngine, DetectedEngine } from './services/localTeXCompiler';
 import { versionHistory, VersionSnapshot } from './services/versionHistory';
@@ -552,8 +552,26 @@ export const App: React.FC = () => {
         lastSynced: new Date().toISOString()
       })));
       setActiveFileId(loaded[0].name);
-      overleafApi.updateProject(project.id, { isLocal: true, syncStatus: 'synced' });
-      showNotification(`✅ Opened "${project.name}" — ${loaded.length} file${loaded.length === 1 ? '' : 's'}.`);
+
+      // A project added from a URL starts out named after its id. Overleaf's
+      // Git interface never sends the real name, so take one from the document
+      // instead — and only while the placeholder is still untouched, so a name
+      // the user chose is never overwritten.
+      let opened = project;
+      if (isPlaceholderName(project.name)) {
+        const derived = deriveProjectName(loaded);
+        if (derived) {
+          opened = { ...project, name: derived };
+          setCurrentProject(opened);
+        }
+      }
+
+      overleafApi.updateProject(project.id, {
+        isLocal: true,
+        syncStatus: 'synced',
+        name: opened.name
+      });
+      showNotification(`✅ Opened "${opened.name}" — ${loaded.length} file${loaded.length === 1 ? '' : 's'}.`);
       return;
     }
 

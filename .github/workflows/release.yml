@@ -89,6 +89,9 @@ jobs:
           name: ZabbLeaf ${{ github.ref_name }}
           draft: false
           prerelease: false
+          # Appends the commits since the previous tag, so each release says
+          # what changed without anyone writing notes by hand.
+          generate_release_notes: true
           body: |
             One installer per platform — download the one for your system:
 
