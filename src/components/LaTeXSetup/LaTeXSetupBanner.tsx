@@ -35,20 +35,20 @@ export const LaTeXSetupBanner: React.FC<LaTeXSetupBannerProps> = ({
         margin: '0 0 18px',
         padding: '14px 18px',
         borderRadius: '12px',
-        background: 'rgba(59, 130, 246, 0.08)',
-        border: '1px solid rgba(59, 130, 246, 0.3)',
-        color: '#e2e8f0'
+        background: 'rgba(137, 167, 189, 0.08)',
+        border: '1px solid rgba(137, 167, 189, 0.3)',
+        color: '#e3e7ec'
       }}
     >
       <div style={{ fontSize: '1.5rem', flexShrink: 0 }}>
-        {isInstalling ? <Loader2 size={24} className="spin" color="#3b82f6" /> : '📄'}
+        {isInstalling ? <Loader2 size={24} className="spin" color="#89a7bd" /> : '📄'}
       </div>
 
       <div style={{ flex: 1, lineHeight: 1.5 }}>
         <div style={{ fontWeight: 600, marginBottom: '2px' }}>
           {isInstalling ? 'Installing LaTeX…' : 'Compile PDFs offline?'}
         </div>
-        <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+        <div style={{ fontSize: '0.85rem', color: '#a0a9b5' }}>
           {isInstalling
             ? 'Downloading and setting up MiKTeX. This takes a few minutes — you can keep working.'
             : 'No LaTeX engine found. ZabbLeaf works fine without one, but installing MiKTeX (~142 MB) lets you build real PDFs without an internet connection.'}
@@ -88,13 +88,13 @@ export const LaTeXReadyNotice: React.FC<LaTeXReadyNoticeProps> = ({ version }) =
       margin: '0 0 18px',
       padding: '12px 18px',
       borderRadius: '12px',
-      background: 'rgba(16, 185, 129, 0.08)',
-      border: '1px solid rgba(16, 185, 129, 0.3)',
-      color: '#e2e8f0',
+      background: 'rgba(111, 168, 204, 0.08)',
+      border: '1px solid rgba(111, 168, 204, 0.3)',
+      color: '#e3e7ec',
       fontSize: '0.9rem'
     }}
   >
-    <CheckCircle2 size={18} color="#10b981" />
+    <CheckCircle2 size={18} color="#6fa8cc" />
     <span>LaTeX is ready — {version}. Pick a local engine in the compiler menu.</span>
   </div>
 );

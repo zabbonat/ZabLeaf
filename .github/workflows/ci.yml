@@ -50,8 +50,11 @@ jobs:
       - name: install app dependencies
         run: npm install
 
-      - name: typecheck the frontend
-        run: npx tsc --noEmit
+      # Must come before anything that touches Rust: generate_context!() reads
+      # distDir at compile time, and dist/ is gitignored, so it does not exist
+      # in a fresh checkout. This also runs tsc, so it typechecks the frontend.
+      - name: build the frontend
+        run: npm run build
 
       # Catches platform-specific mistakes in main.rs. Cross-compiling these
       # from Windows is not possible without a C toolchain for each target, so

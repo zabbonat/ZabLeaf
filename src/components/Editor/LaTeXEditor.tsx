@@ -16,7 +16,7 @@ export const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
     <div className="editor-pane">
       <div className="pane-header">
         <span>📄 {fileName}</span>
-        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>LaTeX Code Editor</span>
+        <span style={{ fontSize: '0.75rem', color: '#7b8593' }}>LaTeX Code Editor</span>
       </div>
       <div style={{ flex: 1 }}>
         <Editor

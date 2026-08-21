@@ -51,26 +51,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       <div className="modal-content" style={{ maxWidth: '500px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Shield size={24} color="#10b981" />
+            <Shield size={24} color="#6fa8cc" />
             <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Overleaf Git Sync</h2>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#a0a9b5', cursor: 'pointer' }}>
             <X size={20} />
           </button>
         </div>
 
-        <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '16px', borderRadius: '12px', marginBottom: '24px', fontSize: '0.9rem', color: '#f8fafc', lineHeight: '1.5' }}>
+        <div style={{ background: 'rgba(137, 167, 189, 0.1)', border: '1px solid rgba(137, 167, 189, 0.3)', padding: '16px', borderRadius: '12px', marginBottom: '24px', fontSize: '0.9rem', color: '#f2f5f8', lineHeight: '1.5' }}>
           ZabbLeaf downloads and uploads your actual files using the official Overleaf Git interface. To connect, you need to generate a one-time Sync Token.
         </div>
 
-        <ol style={{ paddingLeft: '20px', marginBottom: '24px', color: '#cbd5e1', lineHeight: '1.6', fontSize: '0.9rem' }}>
+        <ol style={{ paddingLeft: '20px', marginBottom: '24px', color: '#ccd2da', lineHeight: '1.6', fontSize: '0.9rem' }}>
           <li>
             Click here to open Overleaf Settings:<br/>
             <a 
               href="https://www.overleaf.com/user/settings" 
               target="_blank" 
               rel="noreferrer"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#10b981', fontWeight: 600, background: 'rgba(16, 185, 129, 0.1)', padding: '6px 12px', borderRadius: '6px', marginTop: '6px', textDecoration: 'none' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#6fa8cc', fontWeight: 600, background: 'rgba(111, 168, 204, 0.1)', padding: '6px 12px', borderRadius: '6px', marginTop: '6px', textDecoration: 'none' }}
             >
               Open Overleaf Settings <ExternalLink size={14} />
             </a>

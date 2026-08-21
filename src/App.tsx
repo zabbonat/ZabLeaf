@@ -612,7 +612,7 @@ export const App: React.FC = () => {
         {notification && (
           <div style={{
             position: 'fixed', bottom: '20px', right: '20px',
-            background: '#1e293b', color: '#f8fafc', border: '1px solid #10b981',
+            background: '#262b32', color: '#f2f5f8', border: '1px solid #6fa8cc',
             padding: '12px 20px', borderRadius: '10px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
             zIndex: 999, fontSize: '0.85rem'
           }}>
@@ -675,7 +675,7 @@ export const App: React.FC = () => {
       {notification && (
         <div style={{
           position: 'fixed', bottom: '20px', right: '20px',
-          background: '#1e293b', color: '#f8fafc', border: '1px solid #10b981',
+          background: '#262b32', color: '#f2f5f8', border: '1px solid #6fa8cc',
           padding: '12px 20px', borderRadius: '10px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
           zIndex: 999, fontSize: '0.85rem'
         }}>

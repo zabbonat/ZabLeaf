@@ -15,10 +15,10 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
     return (
       <div className="version-history-panel">
         <div className="version-history-header">
-          <History size={16} color="#10b981" />
+          <History size={16} color="#6fa8cc" />
           <span>Version History</span>
         </div>
-        <div style={{ padding: '24px 16px', textAlign: 'center', color: '#64748b', fontSize: '0.8rem' }}>
+        <div style={{ padding: '24px 16px', textAlign: 'center', color: '#7b8593', fontSize: '0.8rem' }}>
           No versions saved yet. Versions are created automatically when you compile.
         </div>
       </div>
@@ -28,7 +28,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
   return (
     <div className="version-history-panel">
       <div className="version-history-header">
-        <History size={16} color="#10b981" />
+        <History size={16} color="#6fa8cc" />
         <span>Version History ({snapshots.length})</span>
       </div>
 
@@ -45,7 +45,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
                 {VersionHistoryService.timeAgo(snapshot.timestamp)}
               </div>
               <div className="version-message">
-                <FileText size={12} color="#94a3b8" />
+                <FileText size={12} color="#a0a9b5" />
                 {snapshot.message}
               </div>
               <div className="version-file">{snapshot.fileName}</div>

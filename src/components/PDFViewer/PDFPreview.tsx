@@ -33,10 +33,10 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({
     <div className="pdf-pane">
       <div className="pane-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <FileCheck size={14} color="#10b981" />
+          <FileCheck size={14} color="#6fa8cc" />
           <span>Compiled PDF Preview</span>
           {zoom !== 100 && (
-            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{zoom}%</span>
+            <span style={{ fontSize: '0.7rem', color: '#7b8593' }}>{zoom}%</span>
           )}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -54,7 +54,7 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({
 
       <div className="pdf-viewer-container" style={{ padding: 0 }}>
         {isCompiling ? (
-          <div style={{ color: '#94a3b8', textAlign: 'center', padding: '40px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ color: '#a0a9b5', textAlign: 'center', padding: '40px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ fontSize: '2rem', marginBottom: '12px', animation: 'spin 1s linear infinite' }}>⚙️</div>
             <p>Compiling LaTeX document...</p>
           </div>
@@ -66,7 +66,7 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({
             style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left', width: `${10000 / zoom}%`, height: `${10000 / zoom}%` }}
           />
         ) : (
-          <div style={{ color: '#94a3b8', textAlign: 'center', padding: '40px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ color: '#a0a9b5', textAlign: 'center', padding: '40px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <FileCheck size={48} style={{ opacity: 0.2, marginBottom: '12px' }} />
             <p>Click <strong>Recompile</strong> to generate the PDF preview.</p>
           </div>
@@ -75,7 +75,7 @@ export const PDFPreview: React.FC<PDFPreviewProps> = ({
 
       {compileLog && (
         <div className="compile-log">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', color: '#64748b' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', color: '#7b8593' }}>
             <Terminal size={12} /> Compiler Output
           </div>
           {compileLog}

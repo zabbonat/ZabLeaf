@@ -84,10 +84,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
   const getSyncIcon = (status: OverleafProject['syncStatus']) => {
     switch (status) {
-      case 'synced': return <Cloud size={14} color="#10b981" />;
-      case 'local-changes': return <RefreshCw size={14} color="#f59e0b" />;
-      case 'online-only': return <CloudOff size={14} color="#94a3b8" />;
-      case 'offline-only': return <HardDrive size={14} color="#3b82f6" />;
+      case 'synced': return <Cloud size={14} color="#6fa8cc" />;
+      case 'local-changes': return <RefreshCw size={14} color="#d1a054" />;
+      case 'online-only': return <CloudOff size={14} color="#a0a9b5" />;
+      case 'offline-only': return <HardDrive size={14} color="#89a7bd" />;
     }
   };
 
@@ -109,7 +109,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
             <span style={{ fontSize: '1.8rem' }}>🌿</span>
             <span className="brand-logo">ZabbLeaf</span>
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '4px' }}>
+          <p style={{ color: '#a0a9b5', fontSize: '0.9rem', marginTop: '4px' }}>
             Offline Overleaf Desktop IDE — by Diletta Abbonato
           </p>
         </div>
@@ -140,7 +140,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       {/* Search & Actions Bar */}
       <div className="project-actions-bar">
         <div className="search-wrapper">
-          <Search size={16} color="#94a3b8" />
+          <Search size={16} color="#a0a9b5" />
           <input
             type="text"
             placeholder="Search projects..."
@@ -167,14 +167,14 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       {/* Project Grid */}
       <div className="project-grid">
         {isLoading ? (
-          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: '#a0a9b5' }}>
             <RefreshCw size={32} style={{ animation: 'spin 1s linear infinite' }} />
             <p style={{ marginTop: '12px' }}>Loading projects...</p>
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 20px', color: '#a0a9b5' }}>
             <div style={{ fontSize: '3rem', marginBottom: '16px', opacity: 0.6 }}>🌿</div>
-            <h2 style={{ color: '#f8fafc', fontSize: '1.3rem', marginBottom: '8px' }}>Welcome to ZabbLeaf!</h2>
+            <h2 style={{ color: '#f2f5f8', fontSize: '1.3rem', marginBottom: '8px' }}>Welcome to ZabbLeaf!</h2>
             <p style={{ maxWidth: '420px', margin: '0 auto 24px', lineHeight: '1.5' }}>
               {searchQuery 
                 ? `No projects match "${searchQuery}".`
@@ -208,7 +208,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
               onClick={() => onOpenProject(project)}
             >
               <div className="project-card-header">
-                <FolderGit2 size={20} color="#10b981" />
+                <FolderGit2 size={20} color="#6fa8cc" />
                 <div className="project-sync-badge">
                   {getSyncIcon(project.syncStatus)}
                   <span>{getSyncLabel(project.syncStatus)}</span>
@@ -237,7 +237,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                 )}
                 <button
                   className="btn-secondary"
-                  style={{ padding: '6px', color: '#ef4444', borderColor: 'transparent' }}
+                  style={{ padding: '6px', color: '#c97b7b', borderColor: 'transparent' }}
                   title="Delete Project"
                   onClick={(e) => {
                     e.stopPropagation();

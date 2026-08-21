@@ -1,14 +1,29 @@
 :root {
-  --bg-dark: #0f172a;
-  --bg-panel: #1e293b;
-  --bg-panel-hover: #334155;
-  --accent-primary: #10b981;
-  --accent-primary-hover: #059669;
-  --accent-glow: rgba(16, 185, 129, 0.25);
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --border-color: #334155;
-  --border-subtle: #1e293b;
+  /* Grey and soft blue, deliberately low-saturation. */
+  --bg-deep: #1c2025;
+  --bg-panel: #262b32;
+  --border: #39404a;
+  --text: #f2f5f8;
+  --text-muted: #a0a9b5;
+  --text-dim: #7b8593;
+  --accent: #6fa8cc;        /* icons and text on dark surfaces */
+  --accent-strong: #4a86ad; /* filled buttons, which carry white text */
+  --accent-deep: #3b6d8f;
+  --warning: #d1a054;
+  --danger: #c97b7b;
+}
+
+:root {
+  --bg-dark: #1c2025;
+  --bg-panel: #262b32;
+  --bg-panel-hover: #39404a;
+  --accent-primary: #6fa8cc;
+  --accent-primary-hover: #4d86ad;
+  --accent-glow: rgba(111, 168, 204, 0.25);
+  --text-main: #f2f5f8;
+  --text-muted: #a0a9b5;
+  --border-color: #39404a;
+  --border-subtle: #262b32;
   --sidebar-width: 250px;
   --toolbar-height: 56px;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -36,13 +51,13 @@ body {
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 100%);
+  background: radial-gradient(circle at 50% 0%, #262b32 0%, #1c2025 100%);
 }
 
 /* Top Toolbar */
 .top-toolbar {
   height: var(--toolbar-height);
-  background: rgba(30, 41, 59, 0.85);
+  background: rgba(38, 43, 50, 0.85);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
   display: flex;
@@ -60,7 +75,7 @@ body {
 
 .brand-logo {
   font-size: 1.5rem;
-  background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #6fa8cc 0%, #89a7bd 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: 700;
@@ -73,9 +88,9 @@ body {
   font-size: 0.7rem;
   padding: 2px 8px;
   border-radius: 12px;
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(111, 168, 204, 0.15);
   color: var(--accent-primary);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(111, 168, 204, 0.3);
   font-weight: 600;
   letter-spacing: 0.5px;
 }
@@ -93,7 +108,7 @@ body {
   font-size: 0.8rem;
   padding: 4px 10px;
   border-radius: 20px;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(28, 32, 37, 0.6);
   border: 1px solid var(--border-color);
 }
 
@@ -104,20 +119,20 @@ body {
 }
 
 .status-dot.online {
-  background-color: #10b981;
-  box-shadow: 0 0 8px #10b981;
+  background-color: #6fa8cc;
+  box-shadow: 0 0 8px #6fa8cc;
 }
 
 .status-dot.offline {
-  background-color: #f59e0b;
-  box-shadow: 0 0 8px #f59e0b;
+  background-color: #d1a054;
+  box-shadow: 0 0 8px #d1a054;
 }
 
 .btn-sync {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #4a86ad 0%, #3b6d8f 100%);
   color: white;
   border: none;
   padding: 8px 16px;
@@ -135,7 +150,7 @@ body {
 }
 
 .btn-secondary {
-  background: rgba(51, 65, 85, 0.6);
+  background: rgba(57, 64, 74, 0.6);
   color: var(--text-main);
   border: 1px solid var(--border-color);
   padding: 8px 14px;
@@ -151,7 +166,7 @@ body {
 
 .btn-secondary:hover {
   background: var(--bg-panel-hover);
-  border-color: #475569;
+  border-color: #4d5560;
 }
 
 /* Main Workspace Split Layout */
@@ -165,7 +180,7 @@ body {
 /* Sidebar File Tree */
 .sidebar {
   width: var(--sidebar-width);
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(28, 32, 37, 0.8);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -208,7 +223,7 @@ body {
 }
 
 .file-item.active {
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(111, 168, 204, 0.12);
   color: var(--accent-primary);
   font-weight: 500;
   border-left: 3px solid var(--accent-primary);
@@ -245,7 +260,7 @@ body {
 .pdf-pane {
   flex: 1;
   height: 100%;
-  background: #0f172a;
+  background: #1c2025;
   display: flex;
   flex-direction: column;
 }
@@ -268,7 +283,7 @@ body {
   width: 90%;
   max-width: 750px;
   min-height: 800px;
-  color: #1e293b;
+  color: #262b32;
   font-family: 'Times New Roman', Times, serif;
 }
 
@@ -282,7 +297,7 @@ body {
   text-align: center;
   font-style: italic;
   margin-bottom: 24px;
-  color: #475569;
+  color: #4d5560;
 }
 
 .pdf-page-card section {
@@ -291,7 +306,7 @@ body {
 
 .pdf-page-card section h2 {
   font-size: 1.2rem;
-  border-bottom: 1px solid #cbd5e1;
+  border-bottom: 1px solid #ccd2da;
   padding-bottom: 4px;
   margin-bottom: 8px;
 }
@@ -350,7 +365,7 @@ body {
   width: 100%;
   padding: 10px 14px;
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(28, 32, 37, 0.8);
   border: 1px solid var(--border-color);
   color: var(--text-main);
   font-size: 0.9rem;
@@ -360,7 +375,7 @@ body {
 
 .input-control:focus {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 0 2px rgba(111, 168, 204, 0.2);
 }
 
 .help-text {
@@ -395,7 +410,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  background: radial-gradient(ellipse at 50% 0%, #1e293b 0%, #0f172a 70%);
+  background: radial-gradient(ellipse at 50% 0%, #262b32 0%, #1c2025 70%);
 }
 
 .project-list-header {
@@ -417,7 +432,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(15, 23, 42, 0.7);
+  background: rgba(28, 32, 37, 0.7);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 4px 12px;
@@ -433,7 +448,7 @@ body {
 }
 
 .project-card {
-  background: rgba(30, 41, 59, 0.7);
+  background: rgba(38, 43, 50, 0.7);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 20px;
@@ -445,7 +460,7 @@ body {
 }
 
 .project-card:hover {
-  border-color: rgba(16, 185, 129, 0.4);
+  border-color: rgba(111, 168, 204, 0.4);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
@@ -461,8 +476,8 @@ body {
   align-items: center;
   gap: 4px;
   font-size: 0.7rem;
-  color: #94a3b8;
-  background: rgba(15, 23, 42, 0.6);
+  color: #a0a9b5;
+  background: rgba(28, 32, 37, 0.6);
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -478,7 +493,7 @@ body {
   display: flex;
   justify-content: space-between;
   font-size: 0.75rem;
-  color: #64748b;
+  color: #7b8593;
 }
 
 .project-card-actions {
@@ -500,7 +515,7 @@ body {
 /* Version History Panel */
 .version-history-panel {
   width: 240px;
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(28, 32, 37, 0.8);
   border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -543,19 +558,19 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #475569;
+  background: #4d5560;
   flex-shrink: 0;
 }
 
 .version-dot.latest {
-  background: #10b981;
-  box-shadow: 0 0 6px #10b981;
+  background: #6fa8cc;
+  box-shadow: 0 0 6px #6fa8cc;
 }
 
 .version-line {
   width: 2px;
   flex: 1;
-  background: #334155;
+  background: #39404a;
   min-height: 20px;
 }
 
@@ -566,12 +581,12 @@ body {
 
 .version-time {
   font-size: 0.7rem;
-  color: #64748b;
+  color: #7b8593;
 }
 
 .version-message {
   font-size: 0.78rem;
-  color: #cbd5e1;
+  color: #ccd2da;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -580,15 +595,15 @@ body {
 
 .version-file {
   font-size: 0.7rem;
-  color: #475569;
+  color: #4d5560;
   margin-top: 2px;
 }
 
 .version-restore-btn {
   margin-top: 4px;
   background: none;
-  border: 1px solid #334155;
-  color: #94a3b8;
+  border: 1px solid #39404a;
+  color: #a0a9b5;
   border-radius: 4px;
   padding: 2px 8px;
   font-size: 0.7rem;
@@ -600,16 +615,16 @@ body {
 }
 
 .version-restore-btn:hover {
-  border-color: #10b981;
-  color: #10b981;
+  border-color: #6fa8cc;
+  color: #6fa8cc;
 }
 
 .version-current-badge {
   display: inline-block;
   margin-top: 4px;
   font-size: 0.65rem;
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.15);
+  color: #6fa8cc;
+  background: rgba(111, 168, 204, 0.15);
   padding: 1px 6px;
   border-radius: 4px;
   font-weight: 600;
@@ -619,11 +634,11 @@ body {
 .compile-log {
   max-height: 120px;
   overflow-y: auto;
-  background: #0f172a;
-  border-top: 1px solid #334155;
+  background: #1c2025;
+  border-top: 1px solid #39404a;
   padding: 8px 12px;
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #a0a9b5;
   white-space: pre-wrap;
 }

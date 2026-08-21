@@ -44,9 +44,9 @@ export const SyncToolbar: React.FC<SyncToolbarProps> = ({
   const selectedOption = compilerOptions.find(c => c.id === selectedCompiler);
 
   const getCompilerColor = (id: CompilerEngine) => {
-    if (id === 'html-preview') return '#f59e0b';
-    if (id === 'overleaf-cloud') return '#3b82f6';
-    return '#10b981';
+    if (id === 'html-preview') return '#d1a054';
+    if (id === 'overleaf-cloud') return '#89a7bd';
+    return '#6fa8cc';
   };
 
   return (
@@ -64,9 +64,9 @@ export const SyncToolbar: React.FC<SyncToolbarProps> = ({
           <span>🌿</span> ZabbLeaf
         </div>
         <span className="brand-badge">Desktop v2.1</span>
-        <span style={{ color: '#475569', margin: '0 8px' }}>|</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#cbd5e1' }}>
-          <FolderGit2 size={16} color="#10b981" />
+        <span style={{ color: '#4d5560', margin: '0 8px' }}>|</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#ccd2da' }}>
+          <FolderGit2 size={16} color="#6fa8cc" />
           <strong>{projectName}</strong>
         </div>
       </div>
@@ -76,13 +76,13 @@ export const SyncToolbar: React.FC<SyncToolbarProps> = ({
           {isOnline ? (
             <>
               <div className="status-dot online" />
-              <Wifi size={14} color="#10b981" />
+              <Wifi size={14} color="#6fa8cc" />
               <span>Connected</span>
             </>
           ) : (
             <>
               <div className="status-dot offline" />
-              <WifiOff size={14} color="#f59e0b" />
+              <WifiOff size={14} color="#d1a054" />
               <span>Offline Mode</span>
             </>
           )}
@@ -95,9 +95,9 @@ export const SyncToolbar: React.FC<SyncToolbarProps> = ({
             onChange={(e) => onCompilerChange(e.target.value as CompilerEngine)}
             style={{
               appearance: 'none',
-              background: 'rgba(30, 41, 59, 0.8)',
+              background: 'rgba(38, 43, 50, 0.8)',
               border: `1px solid ${getCompilerColor(selectedCompiler)}40`,
-              color: '#f8fafc',
+              color: '#f2f5f8',
               padding: '6px 28px 6px 10px',
               borderRadius: '6px',
               fontSize: '0.8rem',
@@ -130,7 +130,7 @@ export const SyncToolbar: React.FC<SyncToolbarProps> = ({
         </div>
 
         <button className="btn-secondary" onClick={onCompile} disabled={isCompiling}>
-          <Play size={14} fill="#10b981" color="#10b981" />
+          <Play size={14} fill="#6fa8cc" color="#6fa8cc" />
           {isCompiling ? 'Compiling...' : 'Recompile'}
         </button>
 

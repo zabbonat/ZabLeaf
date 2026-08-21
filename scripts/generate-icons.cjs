@@ -50,37 +50,82 @@ function makePng(width, height) {
   ihdr[11] = 0;  // filter
   ihdr[12] = 0;  // interlace
 
-  // Generate pixel data: green circle (ZabbLeaf brand) on transparent background
+  // A leaf inside a solid blue circle, with a Z over it. The Z is white and the
+  // leaf only a lighter tint of the circle, so at 32x32 the letter still reads
+  // while the leaf stays visible at large sizes.
+  const CIRCLE = [74, 134, 173];   // #4a86ad
+  const LEAF   = [127, 182, 214];  // #7fb6d6
+  const MARK   = [255, 255, 255];
+
+  const cx = width / 2, cy = height / 2;
+  const radius = width * 0.47;
+
+  // Leaf: the lens where two circles overlap, turned 45 degrees so it points
+  // up-right, plus a short stem out of the opposite tip.
+  const ANGLE = -Math.PI / 4;
+  const cos = Math.cos(ANGLE), sin = Math.sin(ANGLE);
+  const leafR = width * 0.50;
+  const leafD = width * 0.31;
+
+  function distToSegment(px, py, ax, ay, bx, by) {
+    const vx = bx - ax, vy = by - ay;
+    const wx = px - ax, wy = py - ay;
+    const len2 = vx * vx + vy * vy;
+    let t = len2 === 0 ? 0 : (wx * vx + wy * vy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const dx = px - (ax + t * vx), dy = py - (ay + t * vy);
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // Returns the colour at a point, or null for transparent.
+  function sample(x, y) {
+    const dx = x - cx, dy = y - cy;
+    if (Math.sqrt(dx * dx + dy * dy) > radius) return null;
+
+    // Z, in circle-local units so it scales with the icon.
+    const u = dx / width, v = dy / width;
+    const half = 0.125, thick = 0.044;
+    const inTopBar = Math.abs(v + half) <= thick / 2 && Math.abs(u) <= half;
+    const inBottomBar = Math.abs(v - half) <= thick / 2 && Math.abs(u) <= half;
+    const onDiagonal = distToSegment(u, v, half, -half, -half, half) <= thick / 2;
+    if (inTopBar || inBottomBar || onDiagonal) return MARK;
+
+    // Leaf, rotated into its own frame.
+    const lx = dx * cos - dy * sin;
+    const ly = dx * sin + dy * cos;
+    const inLens =
+      Math.sqrt((lx + leafD) * (lx + leafD) + ly * ly) <= leafR &&
+      Math.sqrt((lx - leafD) * (lx - leafD) + ly * ly) <= leafR;
+    const onStem =
+      distToSegment(lx, ly, -(leafR - leafD), 0, -(leafR - leafD) - width * 0.13, 0) <= width * 0.024;
+    if (inLens || onStem) return LEAF;
+
+    return CIRCLE;
+  }
+
   const rowLen = 1 + width * 4; // filter byte + RGBA per pixel
   const raw = Buffer.alloc(height * rowLen);
-  const cx = width / 2, cy = height / 2, radius = width * 0.40;
+  const SS = 3; // supersampling, so edges are not jagged at 32x32
 
   for (let y = 0; y < height; y++) {
     raw[y * rowLen] = 0; // filter type: None
     for (let x = 0; x < width; x++) {
+      let r = 0, g = 0, b = 0, hits = 0;
+      for (let sy = 0; sy < SS; sy++) {
+        for (let sx = 0; sx < SS; sx++) {
+          const c = sample(x + (sx + 0.5) / SS, y + (sy + 0.5) / SS);
+          if (c) { r += c[0]; g += c[1]; b += c[2]; hits++; }
+        }
+      }
       const offset = y * rowLen + 1 + x * 4;
-      const dx = x - cx, dy = y - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (dist <= radius - 1) {
-        // Solid green
-        raw[offset]     = 16;   // R
-        raw[offset + 1] = 185;  // G
-        raw[offset + 2] = 129;  // B
-        raw[offset + 3] = 255;  // A
-      } else if (dist <= radius + 1) {
-        // Anti-aliased edge
-        const alpha = Math.max(0, Math.min(255, Math.round((radius + 1 - dist) * 128)));
-        raw[offset]     = 16;
-        raw[offset + 1] = 185;
-        raw[offset + 2] = 129;
-        raw[offset + 3] = alpha;
+      const total = SS * SS;
+      if (hits === 0) {
+        raw[offset] = raw[offset + 1] = raw[offset + 2] = raw[offset + 3] = 0;
       } else {
-        // Transparent
-        raw[offset]     = 0;
-        raw[offset + 1] = 0;
-        raw[offset + 2] = 0;
-        raw[offset + 3] = 0;
+        raw[offset]     = Math.round(r / hits);
+        raw[offset + 1] = Math.round(g / hits);
+        raw[offset + 2] = Math.round(b / hits);
+        raw[offset + 3] = Math.round((hits / total) * 255);
       }
     }
   }
