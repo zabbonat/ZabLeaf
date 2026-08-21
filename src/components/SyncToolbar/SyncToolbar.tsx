@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Wifi, WifiOff, Play, UserCheck, FolderGit2, Home, ChevronDown } from 'lucide-react';
+import { RefreshCw, Wifi, WifiOff, Play, UserCheck, FolderGit2, Home, ChevronDown, LogOut } from 'lucide-react';
 
 export type CompilerEngine = 'html-preview' | 'overleaf-cloud' | 'pdflatex' | 'xelatex' | 'lualatex';
 
@@ -17,6 +17,8 @@ interface SyncToolbarProps {
   onSync: () => void;
   onCompile: () => void;
   onOpenAuth: () => void;
+  onLogout: () => void;
+  isLoggedIn: boolean;
   onHome: () => void;
   projectName: string;
   selectedCompiler: CompilerEngine;
@@ -31,6 +33,8 @@ export const SyncToolbar: React.FC<SyncToolbarProps> = ({
   onSync,
   onCompile,
   onOpenAuth,
+  onLogout,
+  isLoggedIn,
   onHome,
   projectName,
   selectedCompiler,
@@ -139,6 +143,17 @@ export const SyncToolbar: React.FC<SyncToolbarProps> = ({
           <UserCheck size={14} />
           Account
         </button>
+
+        {isLoggedIn && (
+          <button
+            className="btn-secondary"
+            onClick={onLogout}
+            title="Sign out of Overleaf — your downloaded projects stay on this computer"
+            style={{ padding: '6px 10px' }}
+          >
+            <LogOut size={14} />
+          </button>
+        )}
       </div>
     </header>
   );

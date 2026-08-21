@@ -919,126 +919,187 @@ fn zl_install_tex() -> Result<InstallOutcome, String> {
             log: String::new(),
         });
     }
+    install_tex_distribution()
+}
 
-    #[cfg(windows)]
-    {
-        let mut log = String::new();
+// One function per platform, each with its own signature, so a mistake in a
+// branch that this machine cannot compile is a compile error on the machine
+// that can — rather than a block whose type happens to work out.
 
-        // --scope user keeps this out of Program Files, so no admin prompt.
-        let (code, out) = run_tool(
-            "winget",
-            &[
-                "install".to_string(),
-                "--id".to_string(),
-                "MiKTeX.MiKTeX".to_string(),
-                "--scope".to_string(),
-                "user".to_string(),
-                "--silent".to_string(),
-                "--accept-package-agreements".to_string(),
-                "--accept-source-agreements".to_string(),
-                "--disable-interactivity".to_string(),
-            ],
-            &std::env::temp_dir(),
-            &[],
-        )
-        .map_err(|e| {
-            format!(
-                "{}\n\nInstall MiKTeX manually from https://miktex.org/download",
-                e
-            )
-        })?;
-        log.push_str(&out);
+#[cfg(windows)]
+fn install_tex_distribution() -> Result<InstallOutcome, String> {
+    let mut log = String::new();
 
-        if code != 0 && resolve_engine("pdflatex").is_none() {
-            return Ok(InstallOutcome {
-                success: false,
-                message: "MiKTeX installation failed. You can install it manually from https://miktex.org/download".to_string(),
-                log,
-            });
-        }
+    // --scope user keeps this out of Program Files, so no admin prompt.
+    let (code, out) = run_tool(
+        "winget",
+        &[
+            "install".to_string(),
+            "--id".to_string(),
+            "MiKTeX.MiKTeX".to_string(),
+            "--scope".to_string(),
+            "user".to_string(),
+            "--silent".to_string(),
+            "--accept-package-agreements".to_string(),
+            "--accept-source-agreements".to_string(),
+            "--disable-interactivity".to_string(),
+        ],
+        &std::env::temp_dir(),
+        &[],
+    )
+    .map_err(|e| format!("{}
 
-        // Without these two steps the first real document fails: MiKTeX Basic
-        // ships no scalable T1 fonts, and it would otherwise pop up a dialog
-        // asking permission for every package it needs.
-        if let Some((pdflatex, _)) = resolve_engine("pdflatex") {
-            let bin = Path::new(&pdflatex).parent().map(|p| p.to_path_buf());
-            if let Some(bin) = bin {
-                let initexmf = bin.join(engine_file_name("initexmf"));
-                let mpm = bin.join(engine_file_name("mpm"));
+Install MiKTeX manually from https://miktex.org/download", e))?;
+    log.push_str(&out);
 
-                if let Ok((_, out)) = run_tool(
-                    &initexmf.to_string_lossy(),
-                    &["--set-config-value".to_string(), "[MPM]AutoInstall=1".to_string()],
-                    &std::env::temp_dir(),
-                    &[],
-                ) {
-                    log.push_str("\n--- enable automatic package installation ---\n");
-                    log.push_str(&out);
-                }
-
-                if let Ok((_, out)) = run_tool(
-                    &mpm.to_string_lossy(),
-                    &["--install=cm-super".to_string()],
-                    &std::env::temp_dir(),
-                    &[],
-                ) {
-                    log.push_str("\n--- scalable Computer Modern fonts ---\n");
-                    log.push_str(&out);
-                }
-            }
-        }
-
-        return match resolve_engine("pdflatex") {
-            Some((_, version)) => Ok(InstallOutcome {
-                success: true,
-                message: format!("LaTeX installed: {}", version),
-                log,
-            }),
-            None => Ok(InstallOutcome {
-                success: false,
-                message: "MiKTeX was installed but pdflatex could not be found. Restart ZabbLeaf and try again.".to_string(),
-                log,
-            }),
-        };
+    if code != 0 && resolve_engine("pdflatex").is_none() {
+        return Ok(InstallOutcome {
+            success: false,
+            message: "MiKTeX installation failed. Install it manually from https://miktex.org/download"
+                .to_string(),
+            log,
+        });
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        let (code, out) = run_tool(
-            "brew",
-            &["install".to_string(), "--cask".to_string(), "basictex".to_string()],
+    configure_miktex(&mut log);
+
+    match resolve_engine("pdflatex") {
+        Some((_, version)) => Ok(InstallOutcome {
+            success: true,
+            message: format!("LaTeX installed: {}", version),
+            log,
+        }),
+        None => Ok(InstallOutcome {
+            success: false,
+            message: "MiKTeX was installed but pdflatex could not be found. Restart ZabbLeaf and try again."
+                .to_string(),
+            log,
+        }),
+    }
+}
+
+/// Without these two steps the first real document fails: MiKTeX Basic ships no
+/// scalable T1 fonts, and it would otherwise open a dialog asking permission for
+/// every package it needs — a dialog nobody can answer, because ZabbLeaf runs
+/// these tools with no console attached.
+#[cfg(windows)]
+fn configure_miktex(log: &mut String) {
+    let Some((pdflatex, _)) = resolve_engine("pdflatex") else {
+        return;
+    };
+    let Some(bin) = Path::new(&pdflatex).parent().map(|p| p.to_path_buf()) else {
+        return;
+    };
+
+    if let Ok((_, out)) = run_tool(
+        &bin.join(engine_file_name("initexmf")).to_string_lossy(),
+        &[
+            "--set-config-value".to_string(),
+            "[MPM]AutoInstall=1".to_string(),
+        ],
+        &std::env::temp_dir(),
+        &[],
+    ) {
+        log.push_str("
+--- enable automatic package installation ---
+");
+        log.push_str(&out);
+    }
+
+    if let Ok((_, out)) = run_tool(
+        &bin.join(engine_file_name("mpm")).to_string_lossy(),
+        &["--install=cm-super".to_string()],
+        &std::env::temp_dir(),
+        &[],
+    ) {
+        log.push_str("
+--- scalable Computer Modern fonts ---
+");
+        log.push_str(&out);
+    }
+}
+
+/// An app launched from the Finder gets a bare PATH — `/usr/bin:/bin:/usr/sbin:/sbin`
+/// — not the one from the user's shell. Homebrew lives outside it on both
+/// architectures, so looking it up by name alone reports "not installed" to
+/// people who have it.
+#[cfg(target_os = "macos")]
+fn find_homebrew() -> Option<String> {
+    for candidate in [
+        "/opt/homebrew/bin/brew", // Apple Silicon
+        "/usr/local/bin/brew",    // Intel
+        "brew",
+    ] {
+        if let Ok((0, _)) = run_tool(
+            candidate,
+            &["--version".to_string()],
             &std::env::temp_dir(),
             &[],
-        )
-        .map_err(|_| {
-            "Homebrew is not available. Install BasicTeX from https://tug.org/mactex/morepackages.html"
-                .to_string()
-        })?;
+        ) {
+            return Some(candidate.to_string());
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "macos")]
+fn install_tex_distribution() -> Result<InstallOutcome, String> {
+    let brew = find_homebrew().ok_or_else(|| {
+        "Homebrew is not available. Install BasicTeX from \
+         https://tug.org/mactex/morepackages.html"
+            .to_string()
+    })?;
+
+    // BasicTeX rather than the full MacTeX: ~100 MB instead of ~5 GB, and it
+    // fetches the rest through tlmgr when a document needs it.
+    let (code, out) = run_tool(
+        &brew,
+        &[
+            "install".to_string(),
+            "--cask".to_string(),
+            "basictex".to_string(),
+        ],
+        &std::env::temp_dir(),
+        &[],
+    )
+    .map_err(|e| format!("Could not run Homebrew: {}", e))?;
+
+    if code != 0 {
         return Ok(InstallOutcome {
-            success: code == 0,
-            message: if code == 0 {
-                "BasicTeX installed. Restart ZabbLeaf so it picks up the new PATH.".to_string()
-            } else {
-                "Installation failed. Install BasicTeX from https://tug.org/mactex/morepackages.html".to_string()
-            },
+            success: false,
+            message: "Installation failed. Install BasicTeX from https://tug.org/mactex/morepackages.html"
+                .to_string(),
             log: out,
         });
     }
 
-    // Linux package managers need root, which an app should not try to obtain
-    // on the user's behalf.
-    #[cfg(all(not(windows), not(target_os = "macos")))]
-    {
-        Ok(InstallOutcome {
+    match resolve_engine("pdflatex") {
+        Some((_, version)) => Ok(InstallOutcome {
+            success: true,
+            message: format!("LaTeX installed: {}", version),
+            log: out,
+        }),
+        None => Ok(InstallOutcome {
             success: false,
-            message: "Install TeX Live with your package manager, then restart ZabbLeaf."
+            message: "BasicTeX was installed but pdflatex could not be found. Restart ZabbLeaf and try again."
                 .to_string(),
-            log: "Debian/Ubuntu:  sudo apt install texlive-latex-recommended texlive-fonts-recommended\n\
-                  Fedora:         sudo dnf install texlive-scheme-basic\n\
-                  Arch:           sudo pacman -S texlive-basic"
-                .to_string(),
-        })
+            log: out,
+        }),
     }
+}
+
+#[cfg(all(not(windows), not(target_os = "macos")))]
+fn install_tex_distribution() -> Result<InstallOutcome, String> {
+    // Every Linux package manager needs root, and an application should not try
+    // to obtain it on the user's behalf.
+    Ok(InstallOutcome {
+        success: false,
+        message: "Install TeX Live with your package manager, then restart ZabbLeaf.".to_string(),
+        log: "Debian/Ubuntu:  sudo apt install texlive-latex-recommended texlive-fonts-recommended
+              Fedora:         sudo dnf install texlive-scheme-basic
+              Arch:           sudo pacman -S texlive-basic"
+            .to_string(),
+    })
 }
 
 fn base64_encode(bytes: &[u8]) -> String {

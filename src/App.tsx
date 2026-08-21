@@ -442,6 +442,26 @@ export const App: React.FC = () => {
     setIsAuthOpen(true);
   };
 
+  /**
+   * Forgets the Overleaf credentials. Downloaded projects are deliberately left
+   * on disk: they are the user's documents, and signing out is not a request to
+   * delete them.
+   */
+  const handleLogout = () => {
+    const confirmed = window.confirm(
+      'Sign out of Overleaf?\n\n' +
+      'Your Git token will be removed from this computer and you will need to paste it again to sync.\n\n' +
+      'Projects you have already downloaded stay on your computer and can still be edited offline.'
+    );
+    if (!confirmed) return;
+
+    gitSyncEngine.clearCredentials();
+    overleafAuth.logout();
+    setIsLoggedIn(false);
+    setPendingProject(null);
+    showNotification('👋 Signed out. Your local projects are untouched.');
+  };
+
   const handleContentChange = (newContent: string | undefined) => {
     const content = newContent || '';
     setFiles(prev => prev.map(f =>
@@ -617,7 +637,9 @@ export const App: React.FC = () => {
           isLoggedIn={isLoggedIn}
           onOpenProject={handleOpenProject}
           onLogin={handleLogin}
+          onLogout={handleLogout}
           onNewProject={handleNewProject}
+          accountEmail={gitSyncEngine.getCredentials()?.email}
         />
 
         {/* Also needed here: the login button on this screen opens it. */}
@@ -641,6 +663,8 @@ export const App: React.FC = () => {
         onSync={handleSync}
         onCompile={handleCompile}
         onOpenAuth={() => setIsAuthOpen(true)}
+        onLogout={handleLogout}
+        isLoggedIn={isLoggedIn}
         onHome={() => setCurrentView('home')}
         projectName={currentProject?.name || 'Local Project'}
         selectedCompiler={selectedCompiler}

@@ -16,6 +16,24 @@ No Node.js, terminal commands, or developer tools are required. Each release has
 
 [View all releases](https://github.com/zabbonat/ZabbLeaf/releases)
 
+### First run on macOS and Linux
+
+The releases are not code-signed, so both systems will stop you the first time. This is expected for an unsigned open-source build, not a sign that anything is wrong.
+
+**macOS** — the first launch is refused with "ZabbLeaf can't be opened because the developer cannot be verified". Right-click the app in Applications and choose **Open**, then confirm. You only do this once. If macOS instead claims the app is *damaged*, clear the quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/ZabbLeaf.app
+```
+
+**Linux** — make the AppImage executable before running it:
+
+```bash
+chmod +x ZabbLeaf_linux_installer.AppImage
+```
+
+ZabbLeaf also needs `git` on the system. macOS ships a stub that prompts you to install the Xcode command line tools; if you would rather do it yourself, run `xcode-select --install`.
+
 ---
 
 ## Description

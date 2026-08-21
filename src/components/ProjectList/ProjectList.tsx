@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FolderGit2, Cloud, CloudOff, HardDrive, Clock, Search, Plus, Download, ArrowRight, RefreshCw, LogIn, Trash2 } from 'lucide-react';
+import { FolderGit2, Cloud, CloudOff, HardDrive, Clock, Search, Plus, Download, ArrowRight, RefreshCw, LogIn, LogOut, Trash2 } from 'lucide-react';
 import { OverleafProject, overleafApi } from '../../services/overleafApi';
 import { extractProjectId, isValidProjectId } from '../../services/gitSync';
 
@@ -7,14 +7,19 @@ interface ProjectListProps {
   isLoggedIn: boolean;
   onOpenProject: (project: OverleafProject) => void;
   onLogin: () => void;
+  onLogout: () => void;
   onNewProject: () => void;
+  /** Shown next to the connection badge so it is clear which account is active. */
+  accountEmail?: string;
 }
 
 export const ProjectList: React.FC<ProjectListProps> = ({
   isLoggedIn,
   onOpenProject,
   onLogin,
-  onNewProject
+  onLogout,
+  onNewProject,
+  accountEmail
 }) => {
   const [projects, setProjects] = useState<OverleafProject[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -115,10 +120,19 @@ export const ProjectList: React.FC<ProjectListProps> = ({
               <LogIn size={16} /> Login with Overleaf
             </button>
           ) : (
-            <div className="status-indicator" style={{ padding: '6px 12px' }}>
-              <div className="status-dot online" />
-              <span>Connected to Overleaf</span>
-            </div>
+            <>
+              <div className="status-indicator" style={{ padding: '6px 12px' }}>
+                <div className="status-dot online" />
+                <span>{accountEmail || 'Connected to Overleaf'}</span>
+              </div>
+              <button
+                className="btn-secondary"
+                onClick={onLogout}
+                title="Sign out of Overleaf — your downloaded projects stay on this computer"
+              >
+                <LogOut size={16} /> Log out
+              </button>
+            </>
           )}
         </div>
       </div>
