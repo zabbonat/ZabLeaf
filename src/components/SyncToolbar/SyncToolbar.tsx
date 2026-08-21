@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { getVersion } from '@tauri-apps/api/app';
 import { RefreshCw, Wifi, WifiOff, Play, UserCheck, FolderGit2, Home, ChevronDown, LogOut } from 'lucide-react';
 
 export type CompilerEngine = 'html-preview' | 'overleaf-cloud' | 'pdflatex' | 'xelatex' | 'lualatex';
@@ -43,6 +44,13 @@ export const SyncToolbar: React.FC<SyncToolbarProps> = ({
 }) => {
   const selectedOption = compilerOptions.find(c => c.id === selectedCompiler);
 
+  // Read from tauri.conf.json rather than hardcoded: the badge had drifted to
+  // "v2.1" while releases were already at v3.1.
+  const [version, setVersion] = useState('');
+  useEffect(() => {
+    getVersion().then(setVersion).catch(() => setVersion(''));
+  }, []);
+
   const getCompilerColor = (id: CompilerEngine) => {
     if (id === 'html-preview') return '#d1a054';
     if (id === 'overleaf-cloud') return '#89a7bd';
@@ -63,7 +71,7 @@ export const SyncToolbar: React.FC<SyncToolbarProps> = ({
         <div className="brand-logo" style={{ cursor: 'pointer' }} onClick={onHome}>
           <span>🌿</span> ZabbLeaf
         </div>
-        <span className="brand-badge">Desktop v2.1</span>
+        {version && <span className="brand-badge">Desktop v{version}</span>}
         <span style={{ color: '#4d5560', margin: '0 8px' }}>|</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#ccd2da' }}>
           <FolderGit2 size={16} color="#6fa8cc" />
